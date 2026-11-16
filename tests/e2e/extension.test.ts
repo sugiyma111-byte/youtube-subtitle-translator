@@ -59,8 +59,14 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await context?.close(); });
 
 test('saves credentials, translates, seeks, caches, stops on navigation and isolates the page', async () => {
-  const options = await context.newPage();
-  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  const [options] = await Promise.all([
+    context.waitForEvent('page'),
+    popup.getByRole('button', { name: 'サービス・字幕の設定' }).click(),
+  ]);
+  await expect(options).toHaveURL(`chrome-extension://${extensionId}/options.html`);
+  await popup.close();
   await options.getByLabel('APIキー', { exact: false }).fill('test-only-not-a-real-api-key');
   await options.getByRole('button', { name: '設定を保存', exact: true }).click();
   await expect(options.locator('#message')).toContainText('設定を保存しました');
