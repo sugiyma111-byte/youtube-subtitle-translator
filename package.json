@@ -1,0 +1,26 @@
+{
+  "name": "youtube-subtitle-translator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YouTube subtitle translation with extensible AI providers",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "postinstall": "wxt prepare"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "^24.0.0",
+    "jsdom": "^27.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "5.1.0",
+    "wxt": "0.21.5"
+  }
+}
