@@ -1,0 +1,27 @@
+:root { font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif; color: #223832; background: #f4f5ef; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+button, .button { cursor: pointer; border: 1px solid #d4dfd7; background: #fff; border-radius: 10px; padding: 11px 16px; color: #254b40; font-weight: 600; text-decoration: none; }
+button:hover { background: #edf4ef; }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: #19634e; color: #fff; border-color: #19634e; }
+button.primary:hover { background: #104c3b; }
+input:not([type=range]), select { width: 100%; background: #fff; color: #223832; border: 1px solid #cbd8cf; border-radius: 8px; padding: 11px 12px; }
+input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 3px solid #a2d3b9; outline-offset: 2px; }
+input[type=range] { width: 100%; accent-color: #19634e; }
+label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+small, .muted { color: #64766e; line-height: 1.7; font-weight: 400; }
+a { color: #19634e; }
+h1, h2, p { margin-top: 0; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo { display: inline-grid; place-items: center; width: 44px; height: 44px; background: #19634e; color: #f7fff7; border-radius: 14px; font-size: 23px; font-weight: 700; }
+.brand strong { font-size: 18px; letter-spacing: .05em; }
+.eyebrow { color: #64766e; font-size: 11px; letter-spacing: .16em; margin-top: 3px; }
+.badge { display: inline-block; border-radius: 100px; padding: 5px 10px; background: #e8f2e9; color: #24634c; font-size: 12px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+[hidden] { display: none !important; }
+.message { min-height: 24px; line-height: 1.7; font-size: 14px; white-space: pre-wrap; }
+.message[data-error=true] { color: #a1392b; }
+@media (prefers-reduced-motion: no-preference) { button { transition: background .15s ease; } }

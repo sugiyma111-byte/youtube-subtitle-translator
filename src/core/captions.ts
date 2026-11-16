@@ -64,7 +64,26 @@ export function parseTimedTextXml(xml: string): Cue[] {
 
 export function groupCues(input: Cue[], maxCharacters = 350, maxSeconds = 12): Cue[] {
   const groups: Cue[] = [];
-  for (const cue of normalizeCues(input)) {
+  const sized = normalizeCues(input).flatMap(cue => {
+    if (cue.text.length <= maxCharacters) return [cue];
+    const pieces: string[] = [];
+    let remaining = cue.text;
+    while (remaining.length > maxCharacters) {
+      const space = remaining.lastIndexOf(' ', maxCharacters);
+      const boundary = space > maxCharacters / 2 ? space : maxCharacters;
+      pieces.push(remaining.slice(0, boundary).trim());
+      remaining = remaining.slice(boundary).trim();
+    }
+    if (remaining) pieces.push(remaining);
+    const total = pieces.reduce((sum, piece) => sum + piece.length, 0);
+    let consumed = 0;
+    return pieces.map(text => {
+      const start = cue.start + (cue.end - cue.start) * consumed / total;
+      consumed += text.length;
+      return { ...cue, start, end: cue.start + (cue.end - cue.start) * consumed / total, text };
+    });
+  });
+  for (const cue of sized) {
     const previous = groups.at(-1);
     const endsSentence = previous && /[.!?。！？]["'”’)]?$/.test(previous.text);
     const canJoin = previous && cue.start - previous.end <= 1.2 && cue.end - previous.start <= maxSeconds && previous.text.length + cue.text.length + 1 <= maxCharacters && (!endsSentence || previous.end - previous.start < 2);
