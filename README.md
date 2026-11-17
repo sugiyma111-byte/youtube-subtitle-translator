@@ -1,4 +1,4 @@
-# ことのは字幕
+# Caption Translator for YouTube
 
 YouTubeの字幕をAIで翻訳し、再生位置に合わせて動画上に表示するChrome拡張機能です。
 初期設定は **Sarashinaで英語 → 日本語**。OpenAI互換のChat Completions APIにも接続できます。
@@ -27,8 +27,8 @@ YouTubeの字幕をAIで翻訳し、再生位置に合わせて動画上に表�
 1. [Releases](https://github.com/sugiyma111-byte/youtube-subtitle-translator/releases) からChrome用ZIPをダウンロードして展開します。
 2. Chromeで `chrome://extensions` を開き、右上の「デベロッパーモード」をONにします。
 3. 「パッケージ化されていない拡張機能を読み込む」で、**manifest.jsonが入ったフォルダー**を選びます。
-4. [Sarashinaの導入手順](docs/USER_GUIDE.md#sarashinaを設定する) に沿ってAPIキーを取得し、拡張の設定で登録して「保存して接続を確認」を押します。
-5. 英語字幕のある通常のYouTube動画を開き、動画右上の「翻訳 OFF」を押します。
+4. 拡張を開いて「APIキーを登録」を押し、[Sarashinaの導入手順](docs/USER_GUIDE.md#sarashinaを設定する) に沿ってAPIキーを入力して「保存して接続を確認」を押します。
+5. 英語字幕のある通常のYouTube動画を開き、動画右上の「翻訳」スイッチをオンにします。ポップアップの「翻訳を開始」からも始められます。
 
 更新した直後は拡張の更新ボタンを押し、YouTubeページも再読み込みしてください。
 詳しくは [導入・操作ガイド](docs/USER_GUIDE.md) を参照してください。
@@ -41,8 +41,10 @@ YouTubeの字幕をAIで翻訳し、再生位置に合わせて動画上に表�
 - 先読み、早送り・巻き戻し・一時停止・全画面表示への追従。
 - 訳文のローカルキャッシュ、複数タブ共通の送信制限、429への対応。
 - OpenAI互換APIの接続先・モデル・言語コードを設定。
+- 設定ページの「表示言語 / Language」で自動・日本語・Englishを選択。表示言語はすぐに保存・反映され、翻訳中の動画は止まりません。
 
 翻訳は開始した動画だけで動作し、別の動画に移動すると停止します。
+動画上のスイッチと設定ボタンはYouTubeの操作バーと一緒に隠れます。操作するときは動画内でマウスを動かしてください。準備中・送信待ち・エラー時やキーボードでフォーカスしている間は表示を保ちます。
 
 ## 対応範囲と制約
 
@@ -74,7 +76,7 @@ pnpm zip
 | pnpm build | .output/chrome-mv3 にChrome用の拡張を生成 |
 | pnpm check | 型チェック・単体テスト・本番ビルド |
 | pnpm test:e2e | 実ブラウザー上で設定・字幕・再生操作・言語指定を検証 |
-| pnpm zip | .output に配布用ZIPを生成 |
+| pnpm zip | .output/youtube-subtitle-translator-0.1.0-chrome.zip を生成（名前のバージョン部分は package.json に従う） |
 
 自動テストは実際の翻訳APIを呼びません。実際のYouTubeページでの確認と、ユーザーのキーを使う接続確認は別の検証です。
 確認範囲は [検証記録](docs/VALIDATION.md) に記載しています。

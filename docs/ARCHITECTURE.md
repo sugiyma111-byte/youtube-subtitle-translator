@@ -2,7 +2,7 @@
 
 ## 構成図
 
-現在の構成です。独自の中継サーバーを設けず、利用者のChromeから翻訳サービスへ直接接続します。
+Caption Translator for YouTube の構成です。独自の中継サーバーを設けず、利用者のChromeから翻訳サービスへ直接接続します。
 GitHubはコードと配布物の保管先で、翻訳処理やAPIキーの保管には使いません。
 
 ```mermaid
@@ -70,6 +70,16 @@ Sarashina用もOpenAI互換API用も同じ方針です。`chrome.storage.session
 | src/background/translator.ts | キーの取得、キャッシュ、全タブ共通の送信制限 |
 | src/background/settings-store.ts | 保存値の検証、キーと公開設定の分離 |
 | src/ui/overlay.ts | Shadow DOM内で字幕を表示。全画面になるプレーヤーの内側に配置 |
+| src/i18n/ja.ts / en.ts / index.ts | UIの辞書・文言の差し込み・言語名の表示 |
+| src/ui/language.ts | 設定ページとポップアップの表示言語の保存・切り替え |
+
+## 画面と表示言語
+
+ポップアップは現在の状態に合わせて「APIキーを登録」「翻訳を開始」「翻訳を停止」「字幕を再取得」を表示します。動画上はオン/オフのスイッチと設定ボタンを使い、YouTube本体の操作バーの中には要素を追加しません。
+
+表示言語は `chrome.storage.local` の `uiLanguage`（`auto` / `ja` / `en`）に保存し、翻訳用の `Settings` には含めません。変更をYouTubeタブへメッセージで通知して画面だけを再描画するため、表示言語の変更で翻訳要求や先読みをやり直しません。状態・エラーは `messageKey` と `params` で渡します。
+
+英語辞書は `Record<MessageKey, string>` でキーの不足を型検査し、単体テストで両言語のキー・差し込み名を確認します。言語名には表示言語に応じた `Intl.DisplayNames` を使います。拡張名はmanifestの「Caption Translator for YouTube」、説明は `public/_locales/ja` と `en`（`default_locale: en`）から表示します。
 
 ## 翻訳APIを追加する
 
