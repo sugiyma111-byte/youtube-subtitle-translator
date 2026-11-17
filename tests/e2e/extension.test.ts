@@ -633,13 +633,14 @@ async function overlayBounds(page: Page) {
     const settings = root.querySelector('.settings-button')!.getBoundingClientRect();
     const captions = root.querySelector('.captions')!;
     const captionRect = captions.getBoundingClientRect();
+    const visibleLines = [...root.querySelectorAll<HTMLElement>('.line')].filter(line => line.checkVisibility());
     return {
       top: toggle.top - rect.top, right: rect.right - settings.right,
       switchHeight: toggle.height, settingsSize: [settings.width, settings.height],
       bottomGap: rect.bottom - captionRect.bottom,
       topGap: captionRect.top - toggle.bottom,
       fontSize: getComputedStyle(captions).fontSize,
-      inside: captionRect.left >= rect.left && captionRect.right <= rect.right && captionRect.bottom <= rect.bottom,
+      inside: [captionRect, ...visibleLines.map(line => line.getBoundingClientRect())].every(box => box.left >= rect.left && box.right <= rect.right && box.top >= rect.top && box.bottom <= rect.bottom),
       separate: host.parentElement === player && !host.closest('.ytp-chrome-bottom'),
     };
   });
@@ -720,8 +721,14 @@ test('follows player controls, keeps keyboard access and positions fixed-size ca
   await resizePlayer(page, 460, 259);
   await worker.evaluate(() => chrome.storage.local.set({ uiLanguage: 'en' }));
   await expect(toggle).toHaveAccessibleName('Translate captions for this video');
-  expect(await overlayBounds(page)).toMatchObject({ fontSize: '32px', inside: true });
+  await expect.poll(() => overlayBounds(page)).toMatchObject({ fontSize: '32px', inside: true });
+  // Full-width Japanese glyphs reproduce the extra wrapping seen on Linux.
+  await overlay.evaluate(host => host.style.setProperty('--ui-font', 'monospace'));
+  await expect.poll(() => overlayBounds(page)).toMatchObject({ fontSize: '32px', inside: true });
+  await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
+  await expect(overlay.locator('.original')).toBeVisible();
   await page.screenshot({ path: 'artifacts/overlay-small-en.png' });
+  await overlay.evaluate(host => host.style.removeProperty('--ui-font'));
 
   await resizePlayer(page, 1200, 675);
   await page.locator('#fullscreen').click();
@@ -743,6 +750,7 @@ test('pins preparation, waiting and actionable errors, and shortens small-player
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   await options.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:clear-cache' }));
+  await options.close();
   const page = await context.newPage();
   await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
   const overlay = page.locator('#kotonoha-subtitles');
@@ -755,8 +763,11 @@ test('pins preparation, waiting and actionable errors, and shortens small-player
   await expect(dock).toHaveAttribute('data-visible', 'true');
   await expect(overlay.locator('.actions').getByRole('button', { name: '設定を開く', exact: true })).toBeVisible();
   await expect(overlay.getByRole('button', { name: '字幕を再取得', exact: true })).toBeHidden();
-  await overlay.locator('.actions').getByRole('button', { name: '設定を開く', exact: true }).click();
-  await expect.poll(() => worker.evaluate(async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.url)).toBe(`chrome-extension://${extensionId}/options.html`);
+  const [openedOptions] = await Promise.all([
+    context.waitForEvent('page'),
+    overlay.locator('.actions').getByRole('button', { name: '設定を開く', exact: true }).click(),
+  ]);
+  await expect.poll(() => worker.evaluate(async url => (await chrome.tabs.query({ url })).length, `chrome-extension://${extensionId}/options.html`)).toBeGreaterThan(0);
   await page.bringToFront();
   await toggle.click();
 
@@ -819,7 +830,57 @@ test('pins preparation, waiting and actionable errors, and shortens small-player
   await overlay.getByRole('button', { name: 'Reload captions', exact: true }).click();
   await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
   await expect(dock).toHaveAttribute('data-visible', 'false', { timeout: 12000 });
-  await page.close(); await options.close();
+  await page.close(); await openedOptions.close();
+});
+
+test('bounds wrapped captions at a fixed font size and restores all lines when the player grows', async () => {
+  const translatedText = '字幕の表示領域を確認します。'.repeat(6);
+  const originalText = 'This is a long source caption. '.repeat(5).trim();
+  const settings = { ...DEFAULT_SETTINGS, fontSize: 32, position: 'top' as const };
+  await worker.evaluate(async ({ settings, translatedText }) => {
+    await chrome.storage.local.set({ settings, uiLanguage: 'en', 'key:sarashina': 'test-only-not-a-real-api-key' });
+    await chrome.storage.session.clear();
+    const originalFetch = globalThis.fetch;
+    (globalThis as unknown as { restoreOverlayFetch: () => void }).restoreOverlayFetch = () => { globalThis.fetch = originalFetch; };
+    globalThis.fetch = (input, init) => String(input).startsWith('https://api.sarashina.ai/')
+      ? Promise.resolve(new Response(JSON.stringify({ translated_text: translatedText }), { headers: { 'Content-Type': 'application/json' } }))
+      : originalFetch(input, init);
+  }, { settings, translatedText });
+  const options = await context.newPage();
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  try {
+    await options.goto(`chrome-extension://${extensionId}/options.html`);
+    await options.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:clear-cache' }));
+    await page.route('https://www.youtube.com/api/timedtext**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ events: [{ tStartMs: 0, dDurationMs: 4000, segs: [{ utf8: originalText }] }] }) }));
+    await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+    await resizePlayer(page, 460, 259);
+    const overlay = page.locator('#kotonoha-subtitles');
+    await overlay.getByRole('switch').click();
+    await overlay.evaluate(host => host.style.setProperty('--ui-font', 'monospace'));
+    for (const position of ['top', 'bottom'] as const) {
+      for (const displayMode of ['bilingual', 'translation'] as const) {
+        await options.evaluate(settings => chrome.runtime.sendMessage({ type: 'kotonoha:save-settings', settings, apiKey: '' }), { ...settings, position, displayMode });
+        await expect(overlay.locator('.translated')).toHaveText(translatedText);
+        await expect(overlay.locator('.captions')).toHaveAttribute('data-position', position);
+        await expect.poll(() => overlayBounds(page)).toMatchObject({ fontSize: '32px', inside: true });
+        await expect(overlay.locator('.translated')).toBeVisible();
+        await expect.poll(() => overlay.locator('.translated').evaluate(line => getComputedStyle(line).webkitLineClamp)).not.toBe('none');
+        if (displayMode === 'bilingual') await expect(overlay.locator('.original')).toBeVisible();
+        else await expect(overlay.locator('.original')).toBeHidden();
+        await page.screenshot({ path: `artifacts/review-wrapped-${position}-${displayMode}.png`, animations: 'disabled' });
+      }
+    }
+    await resizePlayer(page, 1200, 675);
+    await expect.poll(() => overlay.locator('.translated').evaluate(line => getComputedStyle(line).webkitLineClamp)).toBe('none');
+    await expect(overlay.locator('.translated')).toHaveText(translatedText);
+    await expect.poll(() => overlayBounds(page)).toMatchObject({ fontSize: '32px', inside: true });
+    expect(errors).toEqual([]);
+  } finally {
+    await worker.evaluate(() => (globalThis as unknown as { restoreOverlayFetch: () => void }).restoreOverlayFetch());
+    await page.close(); await options.close();
+  }
 });
 
 test('shows checking while the video controller mounts, times out and recovers without reopening the popup', async () => {

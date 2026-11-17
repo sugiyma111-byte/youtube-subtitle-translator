@@ -152,7 +152,7 @@ describe('language changes during caption translation', () => {
     expect(document.querySelector('#kotonoha-subtitles')!.shadowRoot!.querySelector('.status')?.textContent).toContain('Spacing out requests');
   });
 
-  it('reports a queued request as waiting while preserving the translated current caption', async () => {
+  it('keeps prefetch rate limiting quiet when the current caption is translated and auto-hides controls', async () => {
     mocks.load.mockResolvedValue({ cues: [{ id: '1', start: 0, end: 4, text: 'First.' }, { id: '2', start: 10, end: 14, text: 'Next.' }], language: 'en', kind: 'player' });
     mocks.sendMessage.mockImplementation(async ({ type, text }: { type: string; text?: string }) => type === 'kotonoha:get-settings'
       ? { ok: true, value: { settings: DEFAULT_SETTINGS, hasApiKey: true, uiLanguage: 'ja' } }
@@ -160,7 +160,12 @@ describe('language changes during caption translation', () => {
       : { ok: false, code: 'RATE_LIMIT', messageKey: 'error.rateLimit', retryAfterMs: 10000 });
     await controller.start();
     await vi.advanceTimersByTimeAsync(350);
-    expect(controller.status).toMatchObject({ phase: 'waiting', translated: 1, total: 2 });
-    expect(document.querySelector('#kotonoha-subtitles')!.shadowRoot!.querySelector('.translated')?.textContent).toBe('最初の字幕。');
+    expect(controller.status).toMatchObject({ phase: 'ready', messageKey: 'status.waiting', translated: 1, total: 2 });
+    const root = document.querySelector('#kotonoha-subtitles')!.shadowRoot!;
+    expect(root.querySelector('.translated')?.textContent).toBe('最初の字幕。');
+    expect(root.querySelector<HTMLElement>('.status')!.hidden).toBe(true);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(root.querySelector<HTMLElement>('.dock')!.dataset.visible).toBe('false');
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(3);
   });
 });

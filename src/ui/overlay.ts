@@ -49,6 +49,7 @@ export class SubtitleOverlay {
   private idleTimer?: number;
   private keyboardFocus = false;
   private removed = false;
+  private captionHeight = 0;
 
   constructor(private readonly player: HTMLElement, onToggle: () => void, onRetry: () => void, onSettings: () => void) {
     this.host.id = 'kotonoha-subtitles';
@@ -85,9 +86,9 @@ export class SubtitleOverlay {
       .actions button.primary:hover { background:#dce3ea; }
       .dock[data-visible=false] { opacity:0; }
       .dock[data-visible=false], .dock[data-visible=false] * { pointer-events:none; }
-      .captions { position:absolute; left:8%; right:8%; bottom:calc(var(--bottom-safe) + var(--caption-gap)); text-align:center; font-size:26px; line-height:1.5; }
+      .captions { position:absolute; left:8%; right:8%; bottom:calc(var(--bottom-safe) + var(--caption-gap)); text-align:center; font-size:26px; line-height:1.5; overflow:hidden; }
       .captions[data-position=top] { top:var(--caption-top); bottom:auto; }
-      .line { width:fit-content; max-width:100%; margin:0 auto; padding:.12em .5em; border-radius:.22em; background:#0d1218d1; white-space:pre-wrap; overflow-wrap:anywhere; pointer-events:none; }
+      .line { display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; width:fit-content; max-width:100%; margin:0 auto; padding:.12em .5em; border-radius:.22em; background:#0d1218d1; white-space:pre-wrap; overflow-wrap:anywhere; pointer-events:none; }
       .translated { font-weight:700; }
       .translated.pending { font-weight:400; color:var(--plate-sub); }
       .original { margin-top:.25em; font-size:max(13px,.62em); color:#e3e8ed; }
@@ -130,7 +131,7 @@ export class SubtitleOverlay {
     });
     this.mutation.observe(player, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
     this.resize = new ResizeObserver(() => this.render());
-    this.resize.observe(player); this.resize.observe(this.dock);
+    this.resize.observe(player); this.resize.observe(this.dock); this.resize.observe(this.captions);
     const listen = { signal: this.listeners.signal };
     for (const event of ['pointermove', 'pointerenter', 'pointerdown']) player.addEventListener(event, this.onPointerActivity, listen);
     document.addEventListener('fullscreenchange', this.render, listen);
@@ -183,7 +184,7 @@ export class SubtitleOverlay {
     const error = state?.phase === 'error';
     let message: LocalizedMessage | undefined;
     if (state?.phase === 'loading') message = { messageKey: 'status.loading' };
-    else if (state?.phase === 'waiting' || state?.messageKey === 'status.waiting') {
+    else if (state?.phase === 'waiting') {
       message = { messageKey: state.messageKey && state.messageKey !== 'status.waiting' ? state.messageKey : compact ? 'overlay.waitingShort' : 'overlay.waiting', params: state.params };
     } else if (error) {
       message = noKey ? { messageKey: compact ? 'overlay.noKeyShort' : 'overlay.noKey' }
@@ -201,12 +202,46 @@ export class SubtitleOverlay {
     const nativeBar = this.player.querySelector<HTMLElement>('.ytp-chrome-bottom');
     const bar = nativeBar?.getBoundingClientRect();
     const bottomSafe = bar?.height && rect.bottom > bar.top ? Math.max(0, rect.bottom - bar.top) : fullscreen ? 88 : 64;
-    this.host.style.setProperty('--bottom-safe', `${controlsVisible ? bottomSafe : 0}px`);
-    this.host.style.setProperty('--caption-gap', `${Math.max(14, rect.height * .03)}px`);
+    const bottom = controlsVisible ? bottomSafe : 0;
+    const gap = Math.min(rect.height / 2, Math.max(14, rect.height * .03));
+    this.host.style.setProperty('--bottom-safe', `${bottom}px`);
+    this.host.style.setProperty('--caption-gap', `${gap}px`);
     // Status text can be taller than the button row. Keep top captions below both.
     const dockHeight = this.dock.getBoundingClientRect().height;
-    this.host.style.setProperty('--caption-top', `${Math.max(topSafe + 68, topSafe + 8 + dockHeight + 16)}px`);
+    const captionTop = Math.min(Math.max(topSafe + 68, topSafe + 8 + dockHeight + 16), rect.height - gap);
+    this.host.style.setProperty('--caption-top', `${captionTop}px`);
+    this.captionHeight = Math.max(0, rect.height - gap - (this.captions.dataset.position === 'top' ? captionTop : bottom + gap));
+    this.captions.style.maxHeight = `${this.captionHeight}px`;
+    this.fitCaptions();
   };
+
+  private fitCaptions() {
+    // Measure actual wrapping: available fonts and glyph widths vary by OS.
+    for (const line of [this.translated, this.original]) {
+      line.style.webkitLineClamp = ''; line.style.removeProperty('display');
+    }
+    if (this.captions.hidden || !this.captionHeight) return;
+    const measure = (line: HTMLElement) => {
+      const style = getComputedStyle(line);
+      return { height: line.getBoundingClientRect().height, lineHeight: parseFloat(style.lineHeight),
+        padding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom), margin: parseFloat(style.marginTop) };
+    };
+    const translated = measure(this.translated);
+    const original = this.original.hidden ? undefined : measure(this.original);
+    if (translated.height + (original ? original.height + original.margin : 0) <= this.captionHeight) return;
+    // Keep whole lines at the configured font size. Reserve one original line when both fit;
+    // otherwise prioritize the translation. Clamping keeps the full text in the DOM.
+    const originalMinimum = original ? original.lineHeight + original.padding + original.margin : 0;
+    const reserved = this.captionHeight >= translated.lineHeight + translated.padding + originalMinimum ? originalMinimum : 0;
+    const clamp = (line: HTMLElement, size: ReturnType<typeof measure>, available: number) => {
+      const lines = Math.max(0, Math.floor((available - size.padding) / size.lineHeight));
+      if (!lines) { line.style.display = 'none'; return 0; }
+      line.style.webkitLineClamp = String(lines);
+      return Math.min(size.height, lines * size.lineHeight + size.padding);
+    };
+    const used = clamp(this.translated, translated, this.captionHeight - reserved);
+    if (original) clamp(this.original, original, this.captionHeight - used - original.margin);
+  }
 
   setLanguage(language: Language) {
     this.language = language;
@@ -232,6 +267,7 @@ export class SubtitleOverlay {
     setText(this.original, original);
     this.original.hidden = settings.displayMode !== 'bilingual';
     this.captions.hidden = !original;
+    this.fitCaptions();
   }
 
   hide() { this.captions.hidden = true; }
