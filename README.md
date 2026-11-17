@@ -76,7 +76,7 @@ pnpm zip
 | pnpm build | .output/chrome-mv3 にChrome用の拡張を生成 |
 | pnpm check | 型チェック・単体テスト・本番ビルド |
 | pnpm test:e2e | 実ブラウザー上で設定・字幕・再生操作・言語指定を検証 |
-| pnpm zip | .output/youtube-subtitle-translator-0.1.0-chrome.zip を生成（名前のバージョン部分は package.json に従う） |
+| pnpm zip | .output/youtube-subtitle-translator-0.2.0-chrome.zip を生成（名前のバージョン部分は package.json に従う） |
 
 自動テストは実際の翻訳APIを呼びません。実際のYouTubeページでの確認と、ユーザーのキーを使う接続確認は別の検証です。
 確認範囲は [検証記録](docs/VALIDATION.md) に記載しています。

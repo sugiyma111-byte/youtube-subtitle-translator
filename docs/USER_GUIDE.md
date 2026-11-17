@@ -9,7 +9,7 @@ Caption Translator for YouTube の導入と操作を説明します。以下の�
 
 ## インストール
 
-1. [GitHubのReleases](https://github.com/sugiyma111-byte/youtube-subtitle-translator/releases) を開き、Assetsにある `youtube-subtitle-translator-0.1.0-chrome.zip`（または新しいバージョンのChrome用ZIP）をダウンロードして展開します。「Source code」のZIPは選びません。
+1. [GitHubのReleases](https://github.com/sugiyma111-byte/youtube-subtitle-translator/releases) を開き、Assetsにある `youtube-subtitle-translator-0.2.0-chrome.zip`（または新しいバージョンのChrome用ZIP）をダウンロードして展開します。「Source code」のZIPは選びません。
 2. Chromeのアドレス欄に `chrome://extensions` を入力します。
 3. 右上の「デベロッパーモード」をONにします。
 4. 「パッケージ化されていない拡張機能を読み込む」を押します。
