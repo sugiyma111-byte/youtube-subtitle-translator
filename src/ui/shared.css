@@ -26,7 +26,7 @@ h1, h2, p { margin-top: 0; }
 .message[data-error=true] { color: #a1392b; }
 @media (prefers-reduced-motion: no-preference) { button { transition: background .15s ease; } }
 
-/* Settings design tokens and shared controls. The popup keeps its current layout. */
+/* Design tokens shared by the popup and settings, followed by settings controls. */
 :root {
   --ink: #17212b;
   --slate: #4b5967;
@@ -36,6 +36,9 @@ h1, h2, p { margin-top: 0; }
   --line-strong: #6b7785;
   --caption-yellow: #ffd84a;
   --plate: #0d1218;
+  --plate-text: #fff;
+  --plate-sub: #c9d2db;
+  --alert: #ff9c85;
   --warning: #9a3b00;
   --warning-bg: #fff1e6;
   --danger: #b42318;

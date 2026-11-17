@@ -7,15 +7,25 @@ export async function bindUiLanguage(control: HTMLElement, render: (language: La
   let preference: UiLanguage = 'auto';
   let revision = 0;
   const select = control instanceof HTMLSelectElement ? control : undefined;
+  const toggle = control instanceof HTMLButtonElement ? control : undefined;
   const buttons = [...control.querySelectorAll<HTMLButtonElement>('[data-ui-language]')];
   const disable = (value: boolean) => {
     if (select) select.disabled = value;
+    if (toggle) toggle.disabled = value;
     buttons.forEach(button => { button.disabled = value; });
   };
   const apply = (value: unknown) => {
     preference = isUiLanguage(value) ? value : 'auto';
     const language = resolveLanguage(preference, browser.i18n.getUILanguage());
     const labels = { auto: t(language, 'language.auto'), ja: languageName('ja', 'ja'), en: languageName('en', 'en') };
+    if (toggle) {
+      const next = language === 'ja' ? 'en' : 'ja';
+      toggle.dataset.uiLanguage = next;
+      toggle.lang = next;
+      toggle.querySelector<HTMLElement>('[data-language-name]')!.textContent = labels[next];
+      toggle.setAttribute('aria-label', t(next, 'language.switchTo', { language: labels[next] }));
+      toggle.title = t(next, 'language.switchTo', { language: labels[next] });
+    }
     if (select) {
       select.replaceChildren(...Object.entries(labels).map(([value, label]) => new Option(label, value)));
       select.value = preference;
@@ -48,6 +58,7 @@ export async function bindUiLanguage(control: HTMLElement, render: (language: La
     } finally { disable(false); }
   };
   select?.addEventListener('change', () => void save(select.value));
+  toggle?.addEventListener('click', () => void save(toggle.dataset.uiLanguage!));
   buttons.forEach(button => button.addEventListener('click', () => void save(button.dataset.uiLanguage!)));
   disable(true);
   const initialRevision = revision;

@@ -1,3 +1,44 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title data-i18n="app.name"></title></head>
-<body data-i18n-pending><main><header class="brand"><span class="logo" aria-hidden="true">字</span><div><strong data-i18n="app.name"></strong><div class="eyebrow" data-i18n="app.tagline"></div></div></header><h1><span data-i18n="popup.headingFirst"></span><br><span data-i18n="popup.headingSecond"></span></h1><div class="summary"><span id="provider-name"></span><span id="language-pair" class="badge"></span></div><p id="status" class="message" role="status"></p><button id="toggle" class="primary" disabled></button><button id="retry" data-i18n="popup.retry" hidden></button><p id="progress" class="muted"></p><footer><button id="options" data-i18n="popup.settings"></button><small data-i18n="popup.privacy"></small><label><span data-i18n="language.label"></span><select id="uiLanguage"></select></label></footer></main><script type="module" src="./main.ts"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="app.name"></title>
+</head>
+<body class="popup-page" data-i18n-pending>
+  <header class="popup-header">
+    <img src="/icon.svg" width="32" height="32" alt="">
+    <div class="product-name"><h1 data-i18n="popup.productName"></h1><span data-i18n="popup.productContext"></span></div>
+    <button id="options" class="icon-button" type="button" data-i18n-aria-label="popup.settings" data-i18n-title="popup.settings">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h9M17 6h2M3 16h2M10 16h9"/><circle cx="14.5" cy="6" r="2.5"/><circle cx="7.5" cy="16" r="2.5"/></svg>
+    </button>
+  </header>
+  <main>
+    <section id="status" class="status-plate" role="status" aria-live="polite">
+      <h2><span id="signal" class="signal" aria-hidden="true"></span><span id="status-title"></span></h2>
+      <p id="status-detail"></p>
+      <div id="translation-progress" hidden>
+        <div id="progress-bar" role="progressbar" aria-valuemin="0" aria-labelledby="progress"><span></span></div>
+        <p id="progress"></p>
+      </div>
+    </section>
+    <div class="popup-actions">
+      <button id="primary" class="action-button primary" type="button" disabled></button>
+      <button id="secondary" class="action-button" type="button" data-i18n="popup.stop" hidden></button>
+    </div>
+    <section id="settings-summary" class="settings-summary" hidden>
+      <dl><dt data-i18n="popup.service"></dt><dd id="provider-name"></dd><dt data-i18n="popup.languages"></dt><dd id="language-pair"></dd></dl>
+      <button id="change-settings" class="text-button" type="button" data-i18n="popup.change"></button>
+    </section>
+  </main>
+  <footer>
+    <p data-i18n="popup.privacy"></p>
+    <p id="notice" role="alert" hidden></p>
+    <button id="uiLanguage" class="language-button" type="button" disabled>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="3.4" ry="8"/><path d="M2 10h16"/></svg>
+      <span data-language-name></span>
+    </button>
+  </footer>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
