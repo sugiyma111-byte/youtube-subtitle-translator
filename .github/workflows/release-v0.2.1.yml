@@ -64,7 +64,7 @@ jobs:
             echo 'The release already exists; no changes were made.'
             exit 1
           fi
-          existing_tag=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+          existing_tag=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$tag" --jq '.[] | select(.ref == "refs/tags/v0.2.1") | .object.sha')
           if [[ -n "$existing_tag" && "$existing_tag" != "$target" ]]; then
             echo 'The existing tag points to a different commit.'
             exit 1
