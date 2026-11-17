@@ -1,0 +1,90 @@
+name: Publish v0.2.1
+
+on:
+  push:
+    branches: ['codex/publish-v0.2.1']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-v0.2.1
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 33d3eb84814f62ccd573cca61543548540c7b40e
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm zip
+      - name: Verify package
+        run: |
+          test "$(git rev-parse HEAD)" = '33d3eb84814f62ccd573cca61543548540c7b40e'
+          test "$(node -p "require('./package.json').version")" = '0.2.1'
+          unzip -p .output/youtube-subtitle-translator-0.2.1-chrome.zip manifest.json | jq -e '.version == "0.2.1"'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v0.2.1-chrome-release
+          path: .output/youtube-subtitle-translator-0.2.1-chrome.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: v0.2.1-chrome-release
+          path: release
+      - name: Publish the authorized v0.2.1 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag='v0.2.1'
+          target='33d3eb84814f62ccd573cca61543548540c7b40e'
+          asset='release/youtube-subtitle-translator-0.2.1-chrome.zip'
+          test -s "$asset"
+          if gh release view "$tag" --json url >/dev/null 2>&1; then
+            echo 'The release already exists; no changes were made.'
+            exit 1
+          fi
+          existing_tag=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+          if [[ -n "$existing_tag" && "$existing_tag" != "$target" ]]; then
+            echo 'The existing tag points to a different commit.'
+            exit 1
+          fi
+          cat > release-notes.md <<'NOTES'
+          Chromeの拡張機能ボタンから開いたとき、ポップアップが細く潰れる問題を修正しました。
+
+          - ポップアップの幅を360pxに保ち、サービス名などが1文字ずつ折り返される問題を解消。
+          - 日本語・英語の実際のポップアップで表示幅を確認する回帰テストを追加。
+          - 型チェック、単体テスト50件、画面操作テスト17件、GitHub CIが成功。
+
+          ダウンロードするファイルは **youtube-subtitle-translator-0.2.1-chrome.zip** です。「Source code」のZIPではありません。
+
+          更新する場合は、現在読み込んでいる拡張機能のフォルダーへZIPの中身を上書きし、Chromeの拡張機能管理画面でこの拡張機能の再読み込みボタンを押してください。その後、YouTubeのページも再読み込みしてください。
+
+          今回の画面変更は幅の修正のみです。
+          NOTES
+          gh release create "$tag" "$asset" \
+            --target "$target" --prerelease --latest=false \
+            --title 'Caption Translator for YouTube v0.2.1 — ポップアップ幅の修正' \
+            --notes-file release-notes.md
+          sha256sum "$asset"
+          gh release view "$tag" --json url,tagName,isPrerelease
