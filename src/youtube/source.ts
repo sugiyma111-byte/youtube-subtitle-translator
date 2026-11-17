@@ -1,5 +1,6 @@
 import { parseJson3, parseTimedTextXml } from '../core/captions';
 import type { Cue } from '../core/types';
+import { MessageError } from '../i18n';
 import { BRIDGE_CHANNEL, type BridgeResult } from './bridge';
 import { openTranscript, readTranscript, transcriptLanguageMatches } from './transcript';
 import { parseTranscriptPanel } from './panel';
@@ -33,8 +34,8 @@ export const youtubeCaptionSource: CaptionSource = {
       try { cues = result.format === 'panel' ? parseTranscriptPanel(JSON.parse(result.body), videoId) : parseJson3(JSON.parse(result.body)); } catch { cues = parseTimedTextXml(result.body); }
       if (cues.length) return { cues, kind: 'player', language: result.language ?? language };
     }
-    if (result.error === 'live') throw new Error('ライブ配信にはまだ対応していません。通常の字幕付き動画でお試しください。');
-    if (result.error === 'no-language') throw new Error(`この動画では ${language} の字幕が見つかりません。設定の原文言語を確認してください。`);
+    if (result.error === 'live') throw new MessageError('error.live');
+    if (result.error === 'no-language') throw new MessageError('error.noLanguage', { language });
     openTranscript(document);
     let didOpen = false;
     for (let attempt = 0; attempt < 16; attempt++) {
@@ -46,6 +47,6 @@ export const youtubeCaptionSource: CaptionSource = {
       if (cues.length && matches === true) return { cues, kind: 'transcript', language };
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    throw new Error(`字幕本文を取得できませんでした。YouTubeの「文字起こしを表示」で原文言語（${language}）を選び、再取得してください。`);
+    throw new MessageError('error.captions', { language });
   },
 };

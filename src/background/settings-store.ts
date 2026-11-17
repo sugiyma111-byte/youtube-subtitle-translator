@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import { DEFAULT_SETTINGS, validateSettings } from '../core/settings';
-import type { ProviderId, PublicSettings, Settings } from '../core/types';
+import type { ProviderId, PublicSettings, Settings, UiLanguage } from '../core/types';
+import { isUiLanguage, MessageError } from '../i18n';
 
 export async function lockStorage(): Promise<void> {
   await Promise.all([
@@ -22,12 +23,23 @@ export async function readApiKey(provider: ProviderId): Promise<string> {
 
 export async function publicSettings(): Promise<PublicSettings> {
   const settings = await readSettings();
-  return { settings, hasApiKey: Boolean(await readApiKey(settings.provider)) };
+  return { settings, hasApiKey: Boolean(await readApiKey(settings.provider)), uiLanguage: await readUiLanguage() };
+}
+
+export async function readUiLanguage(): Promise<UiLanguage> {
+  const { uiLanguage } = await browser.storage.local.get('uiLanguage');
+  return isUiLanguage(uiLanguage) ? uiLanguage : 'auto';
+}
+
+export async function saveUiLanguage(value: unknown): Promise<UiLanguage> {
+  if (!isUiLanguage(value)) throw new MessageError('error.uiLanguage');
+  await browser.storage.local.set({ uiLanguage: value });
+  return value;
 }
 
 export async function saveSettings(input: unknown, apiKey?: unknown, removeApiKey?: unknown): Promise<void> {
   const settings = validateSettings(input);
-  if (apiKey !== undefined && (typeof apiKey !== 'string' || apiKey.length > 4096 || /[\r\n]/.test(apiKey))) throw new Error('APIキーの形式を確認してください。');
+  if (apiKey !== undefined && (typeof apiKey !== 'string' || apiKey.length > 4096 || /[\r\n]/.test(apiKey))) throw new MessageError('error.invalidKey');
   // Changing an endpoint must not silently send the old host's credential to a new host.
   const previous = await readSettings();
   if (previous.customBaseUrl !== settings.customBaseUrl) await browser.storage.local.remove('key:openai-compatible');

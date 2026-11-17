@@ -34,6 +34,11 @@ describe('translation provider boundary', () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('{"message":"wrong schema"}'));
     expect(await createProvider(DEFAULT_SETTINGS, fetcher).translate({ text: 'Hi', sourceLang: 'en', targetLang: 'ja', style: 'auto' }, 'key')).toMatchObject({ ok: false, code: 'RESPONSE' });
   });
+  it('returns a message key and parameters instead of a localized HTTP error', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('private-debug-data', { status: 400 }));
+    const result = await createProvider(DEFAULT_SETTINGS, fetcher).translate({ text: 'Hi', sourceLang: 'en', targetLang: 'ja', style: 'auto' }, 'test-only');
+    expect(result).toEqual({ ok: false, code: 'CONFIG', messageKey: 'error.requestRejected', params: { status: 400 } });
+  });
   it('adapts compatible chat APIs without coupling subtitles to the response format', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('{"choices":[{"message":{"content":"Bonjour"}}]}'));
     const settings = { ...DEFAULT_SETTINGS, provider: 'openai-compatible' as const, targetLang: 'fr', customBaseUrl: 'https://example.com/v1/', customModel: 'translation-model' };
