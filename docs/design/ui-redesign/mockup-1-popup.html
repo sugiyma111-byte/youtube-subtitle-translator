@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 1 — Popup | Caption Translator for YouTube</title>
+<style>
+:root{
+  --ink:#17212B; --slate:#4B5967; --paper:#EEF1F4; --surface:#FFFFFF;
+  --line:#C5CDD6; --line-strong:#6B7785;
+  --yellow:#FFD84A; --plate:#0D1218; --plate-text:#FFFFFF; --plate-sub:#C9D2DB;
+  --alert:#FF9C85; --focus:#1D5FD3;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI",Meiryo,"Noto Sans CJK JP",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#D5DBE2;font-family:var(--font);color:var(--ink);font-size:14px;line-height:1.6}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* ---- mockup controls (not part of the product UI) ---- */
+.demo{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:12px 16px;background:#fff;border-bottom:2px dashed var(--line-strong);font-size:13px}
+.demo b{font-weight:600}
+.demo label{display:flex;align-items:center;gap:8px}
+.demo select{min-height:44px;padding:0 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff}
+.stage{display:grid;place-items:start center;padding:32px 16px 48px}
+.stage-note{max-width:360px;margin:0 0 12px;font-size:13px;color:var(--slate)}
+
+/* ---- popup ---- */
+.popup{width:360px;background:var(--paper);border-radius:10px;overflow:hidden;box-shadow:0 12px 32px rgba(23,33,43,.28)}
+.p-head{display:flex;align-items:center;gap:10px;padding:10px 8px 10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.p-head svg.mark{flex:none}
+.p-name{flex:1;min-width:0;line-height:1.25}
+.p-name strong{display:block;font-size:15px;font-weight:700}
+.p-name span{font-size:13px;color:var(--slate)}
+.icon-btn{flex:none;width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:8px;background:none;cursor:pointer}
+.icon-btn:hover{background:var(--paper)}
+
+.p-body{padding:14px 16px 16px}
+.plate{background:var(--plate);color:var(--plate-text);border-radius:8px;padding:14px 16px 16px}
+.plate-title{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;line-height:1.4}
+.sig{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--plate-sub)}
+.sig[data-kind=on]{background:var(--yellow);border-color:var(--yellow)}
+.sig[data-kind=wait]{border-color:var(--yellow);border-style:dashed}
+.sig[data-kind=alert]{width:20px;height:20px;border:0;border-radius:4px;background:var(--alert);color:var(--plate);font-size:14px;font-weight:800;display:grid;place-items:center}
+.sig[data-kind=alert]::before{content:"!"}
+.plate p{margin:6px 0 0;font-size:13px;color:var(--plate-sub)}
+.prog{margin-top:12px}
+.prog .bar{height:6px;border-radius:3px;background:#3A4652;overflow:hidden}
+.prog .bar i{display:block;height:100%;width:36%;background:var(--yellow)}
+.prog span{display:block;margin-top:6px;font-size:13px;color:var(--plate-text);font-variant-numeric:tabular-nums}
+
+.p-actions{display:grid;gap:8px;margin-top:12px}
+.btn{min-height:48px;padding:8px 16px;border-radius:8px;border:1.5px solid var(--ink);background:var(--surface);font-weight:600;font-size:15px;cursor:pointer;line-height:1.3}
+.btn:hover{background:#E3E8ED}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.primary:hover{background:#2A3947}
+.btn:disabled{background:#DDE2E7;border-color:#DDE2E7;color:#4B5967;cursor:default}
+
+.summary{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 12px;margin:14px 0 0;padding:10px 6px 10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.summary dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px;min-width:0}
+.summary dt{color:var(--slate);white-space:nowrap}
+.summary dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.link-btn{min-height:44px;min-width:44px;padding:0 10px;border:0;background:none;border-radius:8px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.link-btn:hover{background:var(--paper)}
+
+.p-foot{border-top:1px solid var(--line);background:var(--surface);padding:10px 8px 6px 16px}
+.p-foot p{margin:0 8px 4px 0;font-size:13px;color:var(--slate)}
+.lang{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 10px 0 0;border:0;background:none;border-radius:8px;font-weight:600;cursor:pointer}
+.lang:hover{background:var(--paper)}
+</style>
+</head>
+<body>
+
+<div class="demo" aria-label="Mockup controls">
+  <b>モックアップ操作 / Mockup controls</b>
+  <label>状態 / State
+    <select id="stateSel">
+      <option value="idle">開始前 / Ready</option>
+      <option value="active">翻訳中 / Translating</option>
+      <option value="waiting">送信待ち / Waiting</option>
+      <option value="error">エラー / Error</option>
+      <option value="noKey">APIキー未登録 / No API key</option>
+      <option value="notYoutube">動画ページ以外 / Not a video page</option>
+    </select>
+  </label>
+  <span>表示言語は、ポップアップ下部のボタンで切り替わります。 / Use the button at the bottom of the popup to switch language.</span>
+</div>
+
+<div class="stage">
+  <div>
+    <p class="stage-note">幅 360px・実寸 / 360px wide, actual size</p>
+    <main class="popup" id="popup">
+      <header class="p-head">
+        <svg class="mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#17212B"/><rect x="6" y="11" width="20" height="4" rx="2" fill="#fff"/><rect x="9" y="18" width="14" height="4" rx="2" fill="#FFD84A"/></svg>
+        <div class="p-name"><strong>Caption Translator</strong><span>for YouTube</span></div>
+        <button class="icon-btn" id="openSettings" data-i18n-aria="openSettings" data-i18n-title="openSettings">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h9M17 6h2M3 16h2M10 16h9"/><circle cx="14.5" cy="6" r="2.5"/><circle cx="7.5" cy="16" r="2.5"/></svg>
+        </button>
+      </header>
+
+      <div class="p-body">
+        <section class="plate" role="status" aria-live="polite">
+          <div class="plate-title"><span class="sig" id="sig" aria-hidden="true"></span><span id="stTitle"></span></div>
+          <p id="stDetail"></p>
+          <div class="prog" id="prog" hidden>
+            <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="118" aria-valuenow="42"><i></i></div>
+            <span id="progText"></span>
+          </div>
+        </section>
+
+        <div class="p-actions">
+          <button class="btn primary" id="primary"></button>
+          <button class="btn" id="secondary" hidden></button>
+        </div>
+
+        <div class="summary">
+          <dl>
+            <dt data-i18n="service"></dt><dd>Sarashina</dd>
+            <dt data-i18n="languages"></dt><dd id="pair"></dd>
+          </dl>
+          <button class="link-btn" data-i18n="change"></button>
+        </div>
+      </div>
+
+      <footer class="p-foot">
+        <p data-i18n="sendNote"></p>
+        <button class="lang" id="langBtn">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="3.4" ry="8"/><path d="M2 10h16"/></svg>
+          <span id="langBtnText"></span>
+        </button>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+const M = {
+  ja: {
+    openSettings: '設定を開く', service: '翻訳サービス', languages: '言語', change: '変更',
+    pair: '英語 → 日本語',
+    sendNote: '翻訳を開始した動画の字幕だけを、翻訳サービスに送信します。',
+    switchTo: 'English', switchAria: 'Switch display language to English',
+    start: '翻訳を開始', stop: '翻訳を停止', reload: '字幕を再取得', addKey: 'APIキーを登録',
+    progress: '42 / 118 区間を翻訳済み',
+    idle_t: 'この動画を翻訳できます', idle_d: '開始すると、動画の上に訳文を表示します。',
+    active_t: '翻訳中', active_d: '再生位置の先の字幕を先読みしています。',
+    waiting_t: '少し待っています', waiting_d: '送信間隔を調整しています。自動で続行します。',
+    error_t: '字幕を取得できませんでした', error_d: 'YouTubeの「文字起こしを表示」を開き、原文の言語を確認してから再取得してください。',
+    noKey_t: 'APIキーが未登録です', noKey_d: '翻訳サービスのAPIキーを、設定で登録してください。',
+    notYoutube_t: 'YouTubeの動画ページで使えます', notYoutube_d: '字幕のある通常の動画が対象です。ライブ配信とShortsは対象外です。',
+  },
+  en: {
+    openSettings: 'Open settings', service: 'Service', languages: 'Languages', change: 'Change',
+    pair: 'English → Japanese',
+    sendNote: 'Captions are sent to the translation service only for videos where you start translating.',
+    switchTo: '日本語', switchAria: '表示言語を日本語に切り替える',
+    start: 'Start translating', stop: 'Stop translating', reload: 'Reload captions', addKey: 'Add API key',
+    progress: '42 of 118 segments translated',
+    idle_t: 'Ready to translate this video', idle_d: 'Translated captions appear over the video once you start.',
+    active_t: 'Translating', active_d: 'Translating the captions just ahead of the playback position.',
+    waiting_t: 'Waiting briefly', waiting_d: 'Spacing out requests to stay within the limit. This resumes automatically.',
+    error_t: "Couldn't load captions", error_d: 'Open “Show transcript” on YouTube, check the source language, then reload.',
+    noKey_t: 'No API key yet', noKey_d: 'Add the API key for your translation service in Settings.',
+    notYoutube_t: 'Open a YouTube video to use this', notYoutube_d: 'Works on regular videos that have captions. Live streams and Shorts are not supported.',
+  },
+};
+const STATES = {
+  idle:       { sig: 'off',   primary: 'start',  progress: false },
+  active:     { sig: 'on',    primary: 'stop',   primaryPlain: true, progress: true },
+  waiting:    { sig: 'wait',  primary: 'stop',   primaryPlain: true, progress: true },
+  error:      { sig: 'alert', primary: 'reload', secondary: 'stop' },
+  noKey:      { sig: 'alert', primary: 'addKey' },
+  notYoutube: { sig: 'off',   primary: 'start',  disabled: true },
+};
+const q = new URLSearchParams(location.search);
+let lang = q.get('lang') === 'en' ? 'en' : 'ja';
+let state = STATES[q.get('state')] ? q.get('state') : 'idle';
+const $ = id => document.getElementById(id);
+
+function render() {
+  const t = M[lang], s = STATES[state];
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t[el.dataset.i18n]; });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t[el.dataset.i18nAria]); el.title = t[el.dataset.i18nAria]; });
+  $('pair').textContent = t.pair;
+  $('sig').dataset.kind = s.sig;
+  $('stTitle').textContent = t[state + '_t'];
+  $('stDetail').textContent = t[state + '_d'];
+  $('prog').hidden = !s.progress;
+  $('progText').textContent = t.progress;
+  const p = $('primary');
+  p.textContent = t[s.primary];
+  p.disabled = Boolean(s.disabled);
+  p.className = 'btn' + (s.primaryPlain ? '' : ' primary');
+  const sec = $('secondary');
+  sec.hidden = !s.secondary;
+  if (s.secondary) sec.textContent = t[s.secondary];
+  $('langBtnText').textContent = t.switchTo;
+  $('langBtn').setAttribute('aria-label', t.switchAria);
+  $('langBtn').setAttribute('lang', lang === 'ja' ? 'en' : 'ja');
+  $('stateSel').value = state;
+}
+$('langBtn').addEventListener('click', () => { lang = lang === 'ja' ? 'en' : 'ja'; render(); });
+$('stateSel').addEventListener('change', e => { state = e.target.value; render(); });
+$('primary').addEventListener('click', () => {
+  if (state === 'idle') state = 'active';
+  else if (state === 'active' || state === 'waiting') state = 'idle';
+  else if (state === 'error') state = 'active';
+  render();
+});
+$('secondary').addEventListener('click', () => { state = 'idle'; render(); });
+render();
+</script>
+</body>
+</html>

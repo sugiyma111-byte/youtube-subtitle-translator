@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 3 — Settings | Caption Translator for YouTube</title>
+<style>
+:root{
+  --ink:#17212B; --slate:#4B5967; --paper:#EEF1F4; --surface:#FFFFFF;
+  --line:#C5CDD6; --line-strong:#6B7785;
+  --yellow:#FFD84A; --plate:#0D1218;
+  --warn:#9A3B00; --warn-bg:#FFF1E6; --danger:#B42318; --ok:#0B6B45; --ok-bg:#E4F4EC; --focus:#1D5FD3;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI",Meiryo,"Noto Sans CJK JP",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:96px}
+body{margin:0;background:var(--paper);font-family:var(--font);color:var(--ink);font-size:15px;line-height:1.65}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+a{color:var(--ink);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* ---- mockup controls (not part of the product UI) ---- */
+.demo{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:10px 16px;background:#fff;border-bottom:2px dashed var(--line-strong);font-size:13px}
+.demo label{display:flex;align-items:center;gap:8px}
+.demo select{min-height:44px;padding:0 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff}
+
+/* ---- header with the display-language switch ---- */
+.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1120px;margin:auto;padding:10px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px}
+.brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+.brand h1{font-size:17px;font-weight:700;line-height:1.3}
+.brand span{font-size:13px;color:var(--slate)}
+.uilang{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.uilang-label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{min-height:44px;min-width:44px;padding:0 14px;border:0;border-right:1.5px solid var(--ink);background:none;font-weight:600;cursor:pointer;line-height:1.25}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--paper)}
+.seg button[aria-pressed=true],.seg button[aria-checked=true]{background:var(--ink);color:#fff}
+.seg button:focus-visible{outline-offset:-4px;outline-color:var(--focus);box-shadow:inset 0 0 0 5px #fff}
+.seg.wide{display:flex}
+.seg.wide button{flex:1}
+
+/* ---- page ---- */
+.page{max-width:1120px;margin:auto;padding:28px 24px 120px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start}
+.page-title{grid-column:1/-1}
+.page-title h2{font-size:26px;line-height:1.3;font-weight:700}
+.page-title p{color:var(--slate);margin-top:4px;max-width:60ch}
+section.block{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:24px;margin-bottom:20px}
+section.block>h3{font-size:19px;font-weight:700;line-height:1.35;margin-bottom:4px}
+section.block>.lead{color:var(--slate);font-size:14px;margin-bottom:18px;max-width:62ch}
+.field{margin-top:18px}
+.field>label,.field>.lbl{display:block;font-weight:600;margin-bottom:6px}
+.hint{font-size:13px;color:var(--slate);margin-top:6px;max-width:62ch}
+input[type=text],input[type=url],input[type=password],input[type=number],select{width:100%;min-height:44px;padding:8px 12px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--surface)}
+input::placeholder{color:#5B6875}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sub{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.sub h4{margin:0;font-size:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+
+/* service choice */
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choice{position:relative;display:block;padding:14px 14px 14px 46px;border:1.5px solid var(--line-strong);border-radius:10px;cursor:pointer;min-height:44px}
+.choice input{position:absolute;left:14px;top:16px;width:20px;height:20px;margin:0;accent-color:var(--ink)}
+.choice strong{display:block;line-height:1.35}
+.choice span{display:block;font-size:13px;color:var(--slate);margin-top:4px}
+.choice:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink);background:#F7F9FA}
+.choice:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:2px}
+
+/* API key */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:600;border:1.5px solid var(--line-strong);color:var(--slate);background:var(--surface)}
+.badge.ok{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+.keyrow{display:flex;gap:8px}
+.keyrow input{flex:1;min-width:0}
+.warn{margin-top:14px;padding:14px 16px;background:var(--warn-bg);border:1.5px solid var(--warn);border-left-width:6px;border-radius:8px;color:#3D1A00}
+.warn strong{display:flex;gap:8px;align-items:flex-start;font-size:15px;line-height:1.45;color:var(--warn)}
+.warn svg{flex:none;margin-top:2px}
+.warn ul{margin:8px 0 0;padding-left:20px;font-size:14px}
+.warn li{margin-top:4px}
+.warn a{color:#3D1A00;font-weight:600}
+.tap{display:inline-flex;align-items:center;min-height:44px}
+.acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;align-items:center}
+.btn{min-height:44px;padding:8px 18px;border-radius:8px;border:1.5px solid var(--ink);background:var(--surface);font-weight:600;cursor:pointer;line-height:1.3}
+.btn:hover{background:#E3E8ED}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.primary:hover{background:#2A3947}
+.btn.danger{border-color:var(--danger);color:var(--danger)}
+.btn.danger:hover{background:#FBE9E7}
+.btn.danger.solid{background:var(--danger);color:#fff}
+.btn.danger.solid:hover{background:#8F1C13}
+.result{margin-top:14px;padding:10px 14px;border-radius:8px;background:var(--ok-bg);border:1.5px solid var(--ok);color:#073D28;font-size:14px}
+
+/* languages */
+.pair{display:grid;grid-template-columns:1fr 44px 1fr;gap:10px;align-items:end}
+.swap{width:44px;height:44px;display:grid;place-items:center;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--surface);cursor:pointer}
+.swap:hover{background:var(--paper)}
+
+/* appearance */
+.range{display:grid;grid-template-columns:44px 1fr 44px;gap:10px;align-items:center}
+.range input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--ink);cursor:pointer}
+.step{width:44px;height:44px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--surface);font-size:20px;font-weight:600;line-height:1;cursor:pointer}
+.step:hover{background:var(--paper)}
+.lbl output{float:right;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* stored data */
+.datarow{display:grid;grid-template-columns:1fr auto;gap:8px 20px;align-items:center;padding:16px 0;border-top:1px solid var(--line)}
+.datarow:first-of-type{border-top:0;padding-top:4px}
+.datarow strong{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.datarow p{font-size:14px;color:var(--slate);max-width:56ch}
+
+/* aside */
+aside{position:sticky;top:88px;display:grid;gap:20px}
+.preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.preview h3,.howto h3{font-size:15px;font-weight:700;margin-bottom:10px}
+.screen{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:linear-gradient(160deg,#5F7F96 0%,#3D5870 45%,#22323F 100%)}
+.screen i{position:absolute;border-radius:50%}
+.screen i:nth-child(1){width:46%;aspect-ratio:1;left:-8%;bottom:-38%;background:#2E4558}
+.screen i:nth-child(2){width:58%;aspect-ratio:1;left:26%;bottom:-52%;background:#1C2B37}
+.screen i:nth-child(3){width:9%;aspect-ratio:1;right:14%;top:16%;background:#F2E7C4;opacity:.85}
+.pcap{position:absolute;left:6%;right:6%;bottom:9%;text-align:center;color:#fff;line-height:1.5}
+.pcap[data-pos=top]{bottom:auto;top:9%}
+.pcap div{width:fit-content;max-width:100%;margin:0 auto;padding:.1em .5em;background:rgba(13,18,24,.82);border-radius:.22em}
+.pcap .tr{font-weight:700}
+.pcap .or{font-size:.62em;margin-top:.25em;color:#E3E8ED}
+.preview p{font-size:13px;color:var(--slate);margin-top:10px}
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.howto ol{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:10px}
+.howto li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:10px;font-size:14px;line-height:1.5}
+.howto li::before{content:counter(s);width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;font-weight:700;font-size:13px}
+.howto li.done::before{content:"✓";background:var(--ink);color:#fff}
+.howto .links{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:grid;gap:2px;font-size:14px}
+.howto .links a{display:flex;align-items:center;min-height:44px}
+.howto .links p{font-size:13px;color:var(--slate);margin-bottom:6px}
+
+/* save bar */
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--plate);color:#fff}
+.savebar-in{max-width:1120px;margin:auto;padding:10px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.savebar .msg{flex:1;min-width:200px;display:flex;align-items:center;gap:10px;font-size:14px}
+.savebar .pip{flex:none;width:12px;height:12px;border-radius:50%;border:2px solid #C9D2DB}
+.savebar[data-dirty=true] .pip{background:var(--yellow);border-color:var(--yellow)}
+.savebar .btn{border-color:#fff;background:#fff;color:var(--plate)}
+.savebar .btn:hover{background:#DCE3EA}
+.savebar .btn:disabled{background:transparent;color:#C9D2DB;border-color:#6B7785;cursor:default}
+.savebar :focus-visible{outline-color:#fff}
+
+dialog{border:0;border-radius:12px;padding:24px;max-width:440px;width:calc(100% - 32px);color:var(--ink);box-shadow:0 20px 48px rgba(13,18,24,.4)}
+dialog::backdrop{background:rgba(13,18,24,.55)}
+dialog h3{font-size:18px;line-height:1.4}
+dialog p{margin-top:8px;color:var(--slate);font-size:14px}
+dialog .acts{justify-content:flex-end;margin-top:20px}
+
+@media (max-width:900px){
+  .page{grid-template-columns:1fr}
+  aside{position:static}
+}
+@media (max-width:560px){
+  .top-in,.page,.savebar-in{padding-left:16px;padding-right:16px}
+  section.block{padding:18px}
+  .choices,.cols{grid-template-columns:1fr}
+  .pair{grid-template-columns:1fr}
+  .swap{justify-self:start}
+  .datarow{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="demo" aria-label="Mockup controls">
+  <b>モックアップ操作 / Mockup controls</b>
+  <label>APIキーの状態 / API key state
+    <select id="keySel"><option value="none">未登録（初回）/ Not set (first run)</option><option value="saved">登録済み / Saved</option></select></label>
+  <span>表示言語は、ページ右上の切り替えで変わります。 / Switch the display language at the top right of the page.</span>
+</div>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg width="36" height="36" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#17212B"/><rect x="6" y="11" width="20" height="4" rx="2" fill="#fff"/><rect x="9" y="18" width="14" height="4" rx="2" fill="#FFD84A"/></svg>
+      <div><h1>Caption Translator for YouTube</h1><span><span data-i18n="settings"></span>・v0.1.0</span></div>
+    </div>
+    <div class="uilang" role="group" aria-labelledby="uilangLabel">
+      <span class="uilang-label" id="uilangLabel">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="3.4" ry="8"/><path d="M2 10h16"/></svg>
+        表示言語 / Language
+      </span>
+      <div class="seg" id="uiSeg">
+        <button type="button" data-ui="auto" data-i18n="uiAuto" data-i18n-title="uiAutoHint"></button>
+        <button type="button" data-ui="ja" lang="ja">日本語</button>
+        <button type="button" data-ui="en" lang="en">English</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-title">
+    <h2 data-i18n="settings"></h2>
+    <p data-i18n="pageLead"></p>
+  </div>
+
+  <form id="form" onsubmit="return false">
+    <!-- 1. service + API key -->
+    <section class="block" id="service">
+      <h3 data-i18n="svcTitle"></h3>
+      <p class="lead" data-i18n="svcLead"></p>
+      <div class="choices" role="radiogroup" aria-labelledby="service">
+        <label class="choice"><input type="radio" name="provider" value="sarashina" checked>
+          <strong>Sarashina</strong><span data-i18n="svcSarashina"></span></label>
+        <label class="choice"><input type="radio" name="provider" value="custom">
+          <strong data-i18n="svcCustomName"></strong><span data-i18n="svcCustom"></span></label>
+      </div>
+      <p class="hint" data-i18n="svcNote"></p>
+
+      <div id="customFields" hidden>
+        <div class="field"><label for="baseUrl" data-i18n="baseUrl"></label>
+          <input id="baseUrl" type="url" placeholder="https://example.com/v1">
+          <p class="hint" data-i18n="baseUrlHint"></p></div>
+        <div class="cols">
+          <div class="field"><label for="model" data-i18n="model"></label>
+            <input id="model" type="text" data-i18n-ph="modelPh"></div>
+          <div class="field"><label for="rpm" data-i18n="rpm"></label>
+            <input id="rpm" type="number" min="1" max="120" value="30"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="apikey">
+        <h4><span id="keyTitle"></span><span class="badge" id="keyBadge"></span></h4>
+        <div class="field">
+          <label for="apiKey" data-i18n="keyLabel"></label>
+          <div class="keyrow">
+            <input id="apiKey" type="password" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn" id="showKey" aria-pressed="false"></button>
+          </div>
+          <p class="hint" data-i18n="keyHint"></p>
+        </div>
+
+        <div class="warn" role="note">
+          <strong><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 19 18H1z" fill="#9A3B00"/><path d="M10 7.5v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="15" r="1.1" fill="#fff"/></svg><span data-i18n="warnTitle"></span></strong>
+          <ul>
+            <li data-i18n="warn1"></li>
+            <li data-i18n="warn2"></li>
+            <li data-i18n="warn3"></li>
+          </ul>
+          <a class="tap" href="#" data-i18n="warnLink" style="margin-top:4px;font-size:14px"></a>
+        </div>
+
+        <div class="acts">
+          <button type="button" class="btn primary" id="testBtn" data-i18n="saveTest"></button>
+          <button type="button" class="btn danger" id="delKeyBtn" data-i18n="deleteThisKey"></button>
+          <a class="tap" href="#" id="getKey" data-i18n="getKey"></a>
+        </div>
+        <div class="result" id="testResult" role="status" hidden></div>
+      </div>
+    </section>
+
+    <!-- 2. translation languages -->
+    <section class="block" id="languages">
+      <h3 data-i18n="langTitle"></h3>
+      <p class="lead" id="langLead"></p>
+      <div class="pair">
+        <div><label for="src" class="lbl" style="display:block;font-weight:600;margin-bottom:6px" data-i18n="srcLang"></label><select id="src"></select></div>
+        <button type="button" class="swap" id="swapBtn" data-i18n-aria="swap" data-i18n-title="swap">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h13l-3-3M17 13H4l3 3"/></svg></button>
+        <div><label for="tgt" class="lbl" style="display:block;font-weight:600;margin-bottom:6px" data-i18n="tgtLang"></label><select id="tgt"></select></div>
+      </div>
+      <div class="cols" id="codeFields" hidden>
+        <div class="field"><label for="srcCode" data-i18n="srcCode"></label><input id="srcCode" type="text" data-i18n-ph="srcCodePh"></div>
+        <div class="field"><label for="tgtCode" data-i18n="tgtCode"></label><input id="tgtCode" type="text" data-i18n-ph="tgtCodePh"></div>
+      </div>
+      <div class="field">
+        <span class="lbl" id="styleLbl" data-i18n="style"></span>
+        <div class="seg wide" role="radiogroup" aria-labelledby="styleLbl" data-seg="style">
+          <button type="button" role="radio" aria-checked="true" data-v="auto" data-i18n="styleAuto"></button>
+          <button type="button" role="radio" aria-checked="false" data-v="plain" data-i18n="stylePlain"></button>
+          <button type="button" role="radio" aria-checked="false" data-v="polite" data-i18n="stylePolite"></button>
+        </div>
+        <p class="hint" data-i18n="styleHint"></p>
+      </div>
+    </section>
+
+    <!-- 3. appearance -->
+    <section class="block" id="appearance">
+      <h3 data-i18n="lookTitle"></h3>
+      <p class="lead" data-i18n="lookLead"></p>
+      <div class="cols">
+        <div class="field" style="margin-top:0"><span class="lbl" id="modeLbl" data-i18n="mode"></span>
+          <div class="seg wide" role="radiogroup" aria-labelledby="modeLbl" data-seg="mode">
+            <button type="button" role="radio" aria-checked="true" data-v="bilingual" data-i18n="modeBoth"></button>
+            <button type="button" role="radio" aria-checked="false" data-v="translation" data-i18n="modeOne"></button>
+          </div></div>
+        <div class="field" style="margin-top:0"><span class="lbl" id="posLbl" data-i18n="pos"></span>
+          <div class="seg wide" role="radiogroup" aria-labelledby="posLbl" data-seg="pos">
+            <button type="button" role="radio" aria-checked="true" data-v="bottom" data-i18n="posBottom"></button>
+            <button type="button" role="radio" aria-checked="false" data-v="top" data-i18n="posTop"></button>
+          </div></div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="size"><span data-i18n="size"></span> <output id="sizeOut"></output></label>
+        <div class="range">
+          <button type="button" class="step" data-step="size" data-d="-1" data-i18n-aria="smaller">−</button>
+          <input id="size" type="range" min="16" max="48" value="26">
+          <button type="button" class="step" data-step="size" data-d="1" data-i18n-aria="larger">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="ahead"><span data-i18n="ahead"></span> <output id="aheadOut"></output></label>
+        <div class="range">
+          <button type="button" class="step" data-step="ahead" data-d="-5" data-i18n-aria="shorter">−</button>
+          <input id="ahead" type="range" min="10" max="90" step="5" value="30">
+          <button type="button" class="step" data-step="ahead" data-d="5" data-i18n-aria="longer">+</button>
+        </div>
+        <p class="hint" data-i18n="aheadHint"></p>
+      </div>
+    </section>
+
+    <!-- 4. stored data -->
+    <section class="block" id="data">
+      <h3 data-i18n="dataTitle"></h3>
+      <p class="lead" data-i18n="dataLead"></p>
+      <div class="datarow">
+        <div><strong data-i18n="cacheName"></strong><p data-i18n="cacheDesc"></p></div>
+        <button type="button" class="btn danger" id="clearCacheBtn" data-i18n="cacheDelete"></button>
+      </div>
+      <div class="datarow">
+        <div><strong><span data-i18n="keySarashina"></span><span class="badge" id="dataBadgeS"></span></strong></div>
+        <button type="button" class="btn danger" id="dataDelS" data-i18n="delete"></button>
+      </div>
+      <div class="datarow">
+        <div><strong><span data-i18n="keyCustom"></span><span class="badge" id="dataBadgeC"></span></strong></div>
+        <button type="button" class="btn danger" id="dataDelC" data-i18n="delete" disabled style="opacity:.45;cursor:default"></button>
+      </div>
+      <p class="hint" data-i18n="revokeNote"></p>
+    </section>
+  </form>
+
+  <aside>
+    <div class="preview">
+      <h3 data-i18n="preview"></h3>
+      <div class="screen" aria-hidden="true"><i></i><i></i><i></i>
+        <div class="pcap" id="pcap"><div class="tr" id="pTr">新しい視点に、出会おう。</div><div class="or" id="pOr">Discover a new perspective.</div></div>
+      </div>
+      <p data-i18n="previewNote"></p>
+    </div>
+    <div class="howto">
+      <h3 data-i18n="howTitle"></h3>
+      <ol>
+        <li id="how1" data-i18n="how1"></li>
+        <li data-i18n="how2"></li>
+        <li data-i18n="how3"></li>
+      </ol>
+      <div class="links">
+        <p data-i18n="privacyNote"></p>
+        <a href="#" data-i18n="linkGuide"></a>
+        <a href="#" data-i18n="linkPrivacy"></a>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="savebar" id="savebar" data-dirty="false">
+  <div class="savebar-in">
+    <div class="msg" role="status" aria-live="polite"><span class="pip" aria-hidden="true"></span><span id="saveMsg"></span></div>
+    <button type="button" class="btn" id="saveBtn" data-i18n="save" disabled></button>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <h3 id="dlgTitle"></h3>
+  <p id="dlgBody"></p>
+  <div class="acts">
+    <button type="button" class="btn" id="dlgCancel" data-i18n="cancel"></button>
+    <button type="button" class="btn danger solid" id="dlgOk" data-i18n="deleteConfirm"></button>
+  </div>
+</dialog>
+
+<script>
+const M = {
+  ja: {
+    settings: '設定', uiAuto: '自動', uiAutoHint: 'Chromeの表示言語に合わせます',
+    pageLead: '翻訳サービスをつなぎ、字幕の言語と見え方を決めます。表示言語は右上でいつでも切り替えられます。',
+    svcTitle: '翻訳サービスとAPIキー', svcLead: '翻訳したい言語に合わせて、使うサービスを1つ選びます。',
+    svcSarashina: '英語 ⇄ 日本語の翻訳専用。接続先とモデル名の入力は不要です。',
+    svcCustomName: 'OpenAI互換API', svcCustom: '韓国語・中国語・フランス語など、その他の言語に。ベースURLとモデル名が必要です。',
+    svcNote: 'サービスは自動では切り替わりません。「OpenAI互換」は通信形式の名前で、OpenAI社以外のサービスも使えます。',
+    baseUrl: '接続先のベースURL', baseUrlHint: '末尾の /chat/completions は付けません。URLを変更すると、保存済みの互換APIキーは削除されます。',
+    model: 'モデル名', modelPh: 'サービスが指定するモデル名', rpm: '1分あたりの送信上限',
+    keyTitleS: 'Sarashina のAPIキー', keyTitleC: 'OpenAI互換API のAPIキー',
+    saved: '登録済み（暗号化なし）', notSet: '未登録',
+    keyLabel: 'APIキー', keyPhNew: 'APIキーを貼り付け', keyPhSaved: '変更するときだけ入力',
+    keyHint: '「Bearer」や引用符は付けずに、キーだけを貼り付けます。', show: '表示', hide: '隠す',
+    warnTitle: 'APIキーは暗号化せずに保存されます',
+    warn1: 'キーはこのChromeプロファイルの中に、そのままの文字列で保存されます。入力欄の「●●●」は画面上で隠しているだけで、暗号化ではありません。',
+    warn2: 'このPCの保存ファイルやバックアップを読める人は、キーを読み取って使える可能性があります。共有のPCには登録しないでください。',
+    warn3: 'キーを送る先は、選んだ翻訳サービスだけです。Chromeの同期やGitHubには送りません。',
+    warnLink: '保存と削除のくわしい説明を読む',
+    saveTest: '保存して接続を確認', deleteThisKey: 'このキーを削除', getKey: 'SarashinaでAPIキーを取得する',
+    testOk: '接続できました。テスト翻訳：字幕の準備ができました。',
+    langTitle: '翻訳する言語と文体', langLeadS: 'Sarashinaは英語と日本語の相互翻訳に対応しています。', langLeadC: '対応する言語は、接続するサービスとモデルによって異なります。',
+    srcLang: '原文の言語（動画の字幕）', tgtLang: '翻訳先の言語', swap: '原文と翻訳先を入れ替える',
+    srcCode: '原文の言語コード', tgtCode: '翻訳先の言語コード', srcCodePh: '例: en、ko、zh-CN', tgtCodePh: '例: ja、fr',
+    style: '日本語の文体', styleAuto: 'おまかせ', stylePlain: '常体（だ・である）', stylePolite: '敬体（です・ます）',
+    styleHint: '翻訳先が日本語のときだけ使われます。',
+    lookTitle: '字幕の見え方', lookLead: '変更は右の表示イメージにすぐ反映されます。動画に反映するには保存してください。',
+    mode: '表示する字幕', modeBoth: '訳文＋原文', modeOne: '訳文のみ', pos: '表示位置', posBottom: '動画の下側', posTop: '動画の上側',
+    size: '文字サイズ', ahead: '先読みする長さ', sec: '秒',
+    smaller: '文字を小さく', larger: '文字を大きく', shorter: '先読みを短く', longer: '先読みを長く',
+    aheadHint: '長くすると先の字幕まで翻訳するため、翻訳サービスの利用量が増えます。',
+    dataTitle: 'この端末に保存したデータ', dataLead: '削除はすぐに実行され、元に戻せません。',
+    cacheName: '保存した訳文', cacheDesc: '巻き戻しや再視聴のために訳文を保存しています（最大2,000件・30日が目安、暗号化なし）。削除すると、次回はもう一度翻訳します。',
+    cacheDelete: '保存した訳文を削除', keySarashina: 'Sarashina のAPIキー', keyCustom: 'OpenAI互換API のAPIキー', delete: '削除',
+    revokeNote: 'ここで削除しても、発行元のキーは無効になりません。流出が疑われるときは、発行元の管理画面でキーを無効化してください。',
+    preview: '表示イメージ', previewNote: '実際の文字サイズは、プレーヤーの大きさに合わせて変わります。',
+    howTitle: '使い始めるまで', how1: 'APIキーを登録して、接続を確認する', how2: 'YouTubeで字幕のある動画を開く', how3: '動画の右上にある「翻訳」をオンにする',
+    privacyNote: '字幕の原文は、選んだ翻訳サービスに送信されます。翻訳は、オンにした動画だけで動きます。',
+    linkGuide: '導入・操作ガイド', linkPrivacy: 'データの保存と送信について',
+    save: '変更を保存', dirty: '保存していない変更があります。', clean: 'すべて保存済みです。', savedMsg: '設定を保存しました。翻訳中の動画には新しい設定がすぐ反映されます。',
+    cancel: 'キャンセル', deleteConfirm: '削除する',
+    dlgCacheT: '保存した訳文を削除しますか？', dlgCacheB: '次に翻訳するときは、字幕をもう一度翻訳サービスに送信します。',
+    dlgKeyT: 'Sarashina のAPIキーを削除しますか？', dlgKeyB: 'この端末から削除します。翻訳を使うには、もう一度登録が必要です。発行元のキーは無効になりません。',
+    cacheDone: '保存した訳文を削除しました。', keyDone: 'Sarashina のAPIキーを削除しました。',
+    langs: { en: '英語', ja: '日本語', ko: '韓国語', 'zh-CN': '中国語（簡体字）', 'zh-TW': '中国語（繁体字）', fr: 'フランス語', de: 'ドイツ語', es: 'スペイン語', custom: 'その他（言語コードを指定）' },
+  },
+  en: {
+    settings: 'Settings', uiAuto: 'Auto', uiAutoHint: "Follows Chrome's display language",
+    pageLead: 'Connect a translation service, then choose the caption languages and how captions look. You can switch the display language at the top right at any time.',
+    svcTitle: 'Translation service and API key', svcLead: 'Pick one service to match the languages you want to translate.',
+    svcSarashina: 'Built for English ⇄ Japanese. No endpoint or model name needed.',
+    svcCustomName: 'OpenAI-compatible API', svcCustom: 'For other languages such as Korean, Chinese or French. Needs a base URL and a model name.',
+    svcNote: 'Services never switch automatically. “OpenAI-compatible” is the name of the API format, so providers other than OpenAI work too.',
+    baseUrl: 'Base URL', baseUrlHint: 'Leave off the trailing /chat/completions. Changing this URL deletes the key saved for this service.',
+    model: 'Model name', modelPh: 'Model name from your provider', rpm: 'Requests per minute (limit)',
+    keyTitleS: 'Sarashina API key', keyTitleC: 'OpenAI-compatible API key',
+    saved: 'Saved (not encrypted)', notSet: 'Not set',
+    keyLabel: 'API key', keyPhNew: 'Paste your API key', keyPhSaved: 'Enter only to replace the saved key',
+    keyHint: 'Paste the key only, without “Bearer” or quotation marks.', show: 'Show', hide: 'Hide',
+    warnTitle: 'Your API key is stored without encryption',
+    warn1: 'The key is saved as plain text inside this Chrome profile. The dots in the field only hide it on screen; they are not encryption.',
+    warn2: "Anyone who can read this computer's files or backups may be able to read and use the key. Don't save a key on a shared computer.",
+    warn3: 'The key is sent only to the translation service you selected. It is never sent to Chrome sync or GitHub.',
+    warnLink: 'Read more about how keys are stored and deleted',
+    saveTest: 'Save and test connection', deleteThisKey: 'Delete this key', getKey: 'Get an API key from Sarashina',
+    testOk: 'Connected. Test translation: 字幕の準備ができました。',
+    langTitle: 'Translation languages and style', langLeadS: 'Sarashina translates between English and Japanese only.', langLeadC: 'Supported languages depend on the service and model you connect.',
+    srcLang: 'Source language (video captions)', tgtLang: 'Target language', swap: 'Swap source and target',
+    srcCode: 'Source language code', tgtCode: 'Target language code', srcCodePh: 'e.g. en, ko, zh-CN', tgtCodePh: 'e.g. ja, fr',
+    style: 'Japanese writing style', styleAuto: 'Auto', stylePlain: 'Plain (da / de aru)', stylePolite: 'Polite (desu / masu)',
+    styleHint: 'Used only when the target language is Japanese.',
+    lookTitle: 'Caption appearance', lookLead: 'Changes show in the preview right away. Save to apply them to videos.',
+    mode: 'Lines to show', modeBoth: 'Translation + original', modeOne: 'Translation only', pos: 'Position', posBottom: 'Bottom of video', posTop: 'Top of video',
+    size: 'Text size', ahead: 'Look-ahead', sec: 'sec',
+    smaller: 'Smaller text', larger: 'Larger text', shorter: 'Shorter look-ahead', longer: 'Longer look-ahead',
+    aheadHint: 'A longer look-ahead translates more captions in advance and uses more of your translation quota.',
+    dataTitle: 'Data stored on this device', dataLead: "Deleting happens immediately and can't be undone.",
+    cacheName: 'Saved translations', cacheDesc: 'Translations are kept for rewinding and rewatching (up to about 2,000 items for 30 days, not encrypted). After deleting, captions are translated again next time.',
+    cacheDelete: 'Delete saved translations', keySarashina: 'Sarashina API key', keyCustom: 'OpenAI-compatible API key', delete: 'Delete',
+    revokeNote: "Deleting a key here doesn't revoke it with the provider. If you think a key has leaked, revoke it in the provider's console.",
+    preview: 'Preview', previewNote: "On videos, text scales with the size of the player.",
+    howTitle: 'Getting started', how1: 'Add your API key and test the connection', how2: 'Open a YouTube video that has captions', how3: 'Turn on “Translate” at the top right of the video',
+    privacyNote: 'Caption text is sent to the translation service you selected. Translation runs only on videos where you turn it on.',
+    linkGuide: 'Setup and user guide', linkPrivacy: 'How data is stored and sent',
+    save: 'Save changes', dirty: 'You have unsaved changes.', clean: 'All changes saved.', savedMsg: 'Settings saved. Videos being translated pick up the new settings right away.',
+    cancel: 'Cancel', deleteConfirm: 'Delete',
+    dlgCacheT: 'Delete saved translations?', dlgCacheB: 'Next time, captions are sent to the translation service again.',
+    dlgKeyT: 'Delete the Sarashina API key?', dlgKeyB: "This removes it from this device. You'll need to add it again to translate. It does not revoke the key with the provider.",
+    cacheDone: 'Saved translations deleted.', keyDone: 'Sarashina API key deleted.',
+    langs: { en: 'English', ja: 'Japanese', ko: 'Korean', 'zh-CN': 'Chinese (Simplified)', 'zh-TW': 'Chinese (Traditional)', fr: 'French', de: 'German', es: 'Spanish', custom: 'Other (enter a language code)' },
+  },
+};
+const q = new URLSearchParams(location.search);
+const S = {
+  ui: ['ja', 'en'].includes(q.get('lang')) ? q.get('lang') : 'auto',
+  key: q.get('key') === 'saved', provider: q.get('provider') === 'custom' ? 'custom' : 'sarashina',
+  src: 'en', tgt: 'ja', style: 'auto', mode: 'bilingual', pos: 'bottom',
+  dirty: false, flash: '', tested: false,
+};
+const $ = id => document.getElementById(id);
+const lang = () => S.ui === 'auto' ? (navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en') : S.ui;
+
+function fillLangs(t) {
+  const codes = S.provider === 'sarashina' ? ['en', 'ja'] : Object.keys(t.langs);
+  for (const [id, key] of [['src', 'src'], ['tgt', 'tgt']]) {
+    const el = $(id);
+    el.replaceChildren(...codes.map(c => new Option(t.langs[c], c)));
+    if (!codes.includes(S[key])) S[key] = key === 'src' ? 'en' : 'ja';
+    el.value = S[key];
+  }
+}
+function render() {
+  const L = lang(), t = M[L];
+  document.documentElement.lang = L;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t[el.dataset.i18n]; });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t[el.dataset.i18nPh]; });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t[el.dataset.i18nAria]); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t[el.dataset.i18nTitle]; });
+  document.querySelectorAll('#uiSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ui === S.ui)));
+
+  const custom = S.provider === 'custom';
+  document.querySelector(`input[name=provider][value=${S.provider}]`).checked = true;
+  $('customFields').hidden = !custom;
+  $('keyTitle').textContent = custom ? t.keyTitleC : t.keyTitleS;
+  const has = S.key && !custom;
+  $('keyBadge').textContent = has ? t.saved : t.notSet;
+  $('keyBadge').className = 'badge' + (has ? ' ok' : '');
+  $('apiKey').placeholder = has ? t.keyPhSaved : t.keyPhNew;
+  $('showKey').textContent = $('apiKey').type === 'password' ? t.show : t.hide;
+  $('delKeyBtn').hidden = !has;
+  $('getKey').hidden = custom;
+  $('testResult').hidden = !S.tested;
+  $('testResult').textContent = t.testOk;
+
+  fillLangs(t);
+  $('langLead').textContent = custom ? t.langLeadC : t.langLeadS;
+  $('codeFields').hidden = S.src !== 'custom' && S.tgt !== 'custom';
+  $('srcCode').disabled = S.src !== 'custom'; $('tgtCode').disabled = S.tgt !== 'custom';
+  for (const key of ['style', 'mode', 'pos']) document.querySelectorAll(`[data-seg=${key}] button`).forEach(b => b.setAttribute('aria-checked', String(b.dataset.v === S[key])));
+
+  $('sizeOut').textContent = `${$('size').value} px`;
+  $('aheadOut').textContent = `${$('ahead').value} ${t.sec}`;
+  $('pcap').style.fontSize = `${Number($('size').value) * 0.5}px`;
+  $('pcap').dataset.pos = S.pos;
+  $('pOr').hidden = S.mode !== 'bilingual';
+
+  $('dataBadgeS').textContent = S.key ? t.saved : t.notSet;
+  $('dataBadgeS').className = 'badge' + (S.key ? ' ok' : '');
+  $('dataDelS').hidden = !S.key;
+  $('dataBadgeC').textContent = t.notSet;
+  $('dataDelC').hidden = true;
+  $('how1').className = S.key ? 'done' : '';
+
+  $('savebar').dataset.dirty = String(S.dirty);
+  $('saveMsg').textContent = S.flash ? t[S.flash] : (S.dirty ? t.dirty : t.clean);
+  $('saveBtn').disabled = !S.dirty;
+  $('keySel').value = S.key ? 'saved' : 'none';
+}
+const touch = () => { S.dirty = true; S.flash = ''; render(); };
+
+// Display language: applies at once, is stored separately, and never marks the form as unsaved.
+$('uiSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S.ui = b.dataset.ui; render(); } });
+document.querySelectorAll('input[name=provider]').forEach(r => r.addEventListener('change', () => { S.provider = r.value; S.tested = false; touch(); }));
+document.querySelectorAll('[data-seg]').forEach(g => g.addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S[g.dataset.seg] = b.dataset.v; touch(); } }));
+$('src').addEventListener('change', e => { S.src = e.target.value; touch(); });
+$('tgt').addEventListener('change', e => { S.tgt = e.target.value; touch(); });
+$('swapBtn').addEventListener('click', () => { [S.src, S.tgt] = [S.tgt, S.src]; touch(); });
+for (const id of ['size', 'ahead', 'baseUrl', 'model', 'rpm', 'apiKey', 'srcCode', 'tgtCode']) $(id).addEventListener('input', touch);
+document.querySelectorAll('.step').forEach(b => b.addEventListener('click', () => { const r = $(b.dataset.step); r.value = Number(r.value) + Number(b.dataset.d); touch(); }));
+$('showKey').addEventListener('click', () => { const k = $('apiKey'); k.type = k.type === 'password' ? 'text' : 'password'; $('showKey').setAttribute('aria-pressed', String(k.type === 'text')); render(); });
+$('saveBtn').addEventListener('click', () => { S.dirty = false; S.flash = 'savedMsg'; render(); });
+$('testBtn').addEventListener('click', () => { if (S.provider === 'sarashina') S.key = true; S.tested = true; S.dirty = false; S.flash = 'savedMsg'; $('apiKey').value = ''; render(); });
+$('keySel').addEventListener('change', e => { S.key = e.target.value === 'saved'; S.tested = false; render(); });
+
+let pending = null;
+function confirmDelete(kind) {
+  const t = M[lang()]; pending = kind;
+  $('dlgTitle').textContent = kind === 'cache' ? t.dlgCacheT : t.dlgKeyT;
+  $('dlgBody').textContent = kind === 'cache' ? t.dlgCacheB : t.dlgKeyB;
+  $('dlg').showModal();
+}
+$('clearCacheBtn').addEventListener('click', () => confirmDelete('cache'));
+$('delKeyBtn').addEventListener('click', () => confirmDelete('key'));
+$('dataDelS').addEventListener('click', () => confirmDelete('key'));
+$('dlgCancel').addEventListener('click', () => $('dlg').close());
+$('dlgOk').addEventListener('click', () => {
+  if (pending === 'key') { S.key = false; S.tested = false; S.flash = 'keyDone'; } else S.flash = 'cacheDone';
+  $('dlg').close(); render();
+});
+render();
+if (q.get('dirty')) { S.dirty = true; render(); }
+if (q.get('dialog')) confirmDelete(q.get('dialog'));
+</script>
+</body>
+</html>

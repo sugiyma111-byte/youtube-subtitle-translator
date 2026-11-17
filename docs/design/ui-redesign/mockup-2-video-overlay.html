@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 2 — On-video overlay | Caption Translator for YouTube</title>
+<style>
+:root{
+  --ink:#17212B; --slate:#4B5967; --line-strong:#6B7785;
+  --yellow:#FFD84A; --plate:rgba(13,18,24,.88); --plate-solid:#0D1218; --plate-sub:#D3DAE1;
+  --alert:#FF9C85; --focus:#1D5FD3;
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI",Meiryo,"Noto Sans CJK JP",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#D5DBE2;font-family:var(--font);color:var(--ink);font-size:14px;line-height:1.6}
+button,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+/* ---- mockup controls (not part of the product UI) ---- */
+.demo{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:12px 16px;background:#fff;border-bottom:2px dashed var(--line-strong);font-size:13px}
+.demo b{font-weight:600}
+.demo label{display:flex;align-items:center;gap:8px}
+.demo select{min-height:44px;padding:0 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff}
+.demo select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.stage{padding:24px 16px 40px;display:grid;justify-items:center}
+.stage.full{padding:0}
+.legend{max-width:960px;width:100%;margin:12px 0 0;font-size:13px;color:var(--slate)}
+.stage.full .legend{display:none}
+
+/* ---- stand-in video player (deliberately generic, not YouTube's look) ---- */
+.player{position:relative;width:min(100%,960px);aspect-ratio:16/9;overflow:hidden;background:linear-gradient(160deg,#5F7F96 0%,#3D5870 45%,#22323F 100%);container-type:size;--top-safe:56px;--bottom-safe:64px}
+.stage.full .player{width:100%;height:calc(100vh - var(--demo-h,70px));aspect-ratio:auto;--top-safe:72px;--bottom-safe:88px}
+.player[data-chrome=hidden]{--bottom-safe:0px}
+.scene{position:absolute;inset:0}
+.scene i{position:absolute;border-radius:50%}
+.scene i:nth-child(1){width:46%;aspect-ratio:1;left:-8%;bottom:-38%;background:#2E4558}
+.scene i:nth-child(2){width:58%;aspect-ratio:1;left:26%;bottom:-52%;background:#1C2B37}
+.scene i:nth-child(3){width:9%;aspect-ratio:1;right:14%;top:16%;background:#F2E7C4;opacity:.85}
+.zone{position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;border:2px dashed rgba(255,255,255,.55);background:repeating-linear-gradient(135deg,rgba(255,255,255,.10) 0 8px,transparent 8px 16px);color:#fff;font-size:13px;text-align:center;padding:0 12px;transition:opacity .2s}
+.zone.top{top:0;height:var(--top-safe)}
+.zone.bottom{bottom:0;height:64px}
+.stage.full .zone.bottom{height:88px}
+.player[data-chrome=hidden] .zone{opacity:0}
+
+/* ---- product UI: everything below lives in the extension's Shadow DOM ---- */
+.ct{position:absolute;inset:0;pointer-events:none;color:#fff}
+.ct *{pointer-events:auto}
+.ct :focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px var(--plate-solid)}
+
+.dock{position:absolute;right:12px;top:calc(var(--top-safe) + 8px);display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:min(380px,calc(100% - 24px));transition:opacity .2s}
+.bar{display:flex;gap:6px}
+.chip{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px 0 14px;border:1px solid rgba(255,255,255,.28);border-radius:22px;background:var(--plate);color:#fff;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+.chip:hover,.round:hover{background:#26323E}
+.chip .state{min-width:2.4em;text-align:left;font-weight:700}
+.sw{position:relative;flex:none;width:36px;height:20px;border-radius:10px;background:#5A6672;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s}
+.chip[aria-checked=true] .sw{background:var(--yellow)}
+.chip[aria-checked=true] .sw::after{transform:translateX(16px);background:var(--plate-solid)}
+.chip[aria-checked=true] .state{color:var(--yellow)}
+.round{width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:var(--plate);color:#fff;cursor:pointer}
+
+.note{background:var(--plate);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:10px 14px;font-size:14px;line-height:1.55}
+.note.alert{border-left:4px solid var(--alert)}
+.note .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.note button{min-height:44px;padding:0 14px;border-radius:8px;border:1px solid rgba(255,255,255,.6);background:transparent;color:#fff;font-weight:600;cursor:pointer}
+.note button.main{background:#fff;color:var(--plate-solid);border-color:#fff}
+.note button:hover{background:rgba(255,255,255,.16)}
+.note button.main:hover{background:#DCE3EA}
+
+/* The dock follows the player's own auto-hide, but stays while it has something to say */
+.player[data-chrome=hidden] .dock:not([data-sticky=true]):not(:focus-within){opacity:0;pointer-events:none}
+.player[data-chrome=hidden] .dock:not([data-sticky=true]):not(:focus-within) *{pointer-events:none}
+.player[data-chrome=hidden] .dock[data-sticky=true] .bar{display:none}
+
+.caps{position:absolute;left:8%;right:8%;bottom:calc(var(--bottom-safe) + max(14px,3cqh));text-align:center;font-size:max(14px,calc(var(--size,26) * 1cqh / 5.4));line-height:1.5;transition:bottom .2s}
+.caps[data-pos=top]{bottom:auto;top:calc(var(--top-safe) + 68px)}
+.line{width:fit-content;max-width:100%;margin:0 auto;padding:.12em .5em;background:rgba(13,18,24,.82);border-radius:.22em;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}
+.line.tr{font-weight:700;color:#fff}
+.line.tr.pending{font-weight:400;color:var(--plate-sub)}
+.line.or{margin-top:.25em;font-size:max(12px,.62em);color:#E3E8ED}
+
+@container (max-width:520px){ .chip .label{display:none} .note:not(.alert){display:none} .note.alert{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 10px 8px 12px} .note.alert .acts{margin-top:0;flex:none} .note.alert #noteSub{display:none} }
+@media (prefers-reduced-motion:reduce){ .dock,.caps,.sw,.sw::after,.zone{transition:none} }
+</style>
+</head>
+<body>
+
+<div class="demo" aria-label="Mockup controls">
+  <b>モックアップ操作 / Mockup controls</b>
+  <label>表示言語 / UI language
+    <select id="langSel"><option value="ja">日本語</option><option value="en">English</option></select></label>
+  <label>状態 / State
+    <select id="stateSel">
+      <option value="off">オフ / Off</option>
+      <option value="loading">準備中 / Preparing</option>
+      <option value="on">翻訳中 / On</option>
+      <option value="pending">訳文待ち / Line pending</option>
+      <option value="waiting">送信待ち / Rate-limit wait</option>
+      <option value="error">エラー / Error</option>
+      <option value="noKey">APIキー未登録 / No API key</option>
+    </select></label>
+  <label>YouTubeの操作バー / Player controls
+    <select id="chromeSel"><option value="shown">表示中 / Shown</option><option value="hidden">自動で隠れた状態 / Auto-hidden</option></select></label>
+  <label>字幕位置 / Position
+    <select id="posSel"><option value="bottom">下 / Bottom</option><option value="top">上 / Top</option></select></label>
+  <label>表示 / Lines
+    <select id="modeSel"><option value="bilingual">訳文＋原文 / Both</option><option value="translation">訳文のみ / Translation only</option></select></label>
+  <label>大きさ / Size
+    <select id="sizeSel"><option value="normal">通常 / Normal</option><option value="full">全画面相当 / Fullscreen-like</option><option value="small">小さいプレーヤー / Small player</option></select></label>
+</div>
+
+<div class="stage" id="stage">
+  <div class="player" id="player" data-chrome="shown">
+    <div class="scene" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="zone top" id="zoneTop"></div>
+    <div class="zone bottom" id="zoneBottom"></div>
+
+    <div class="ct">
+      <div class="dock" id="dock">
+        <div class="bar">
+          <button class="chip" id="toggle" role="switch" aria-checked="false">
+            <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="5" width="18" height="4" rx="2" fill="#fff"/><rect x="4" y="12" width="12" height="4" rx="2" fill="#FFD84A"/></svg>
+            <span class="label" id="tLabel"></span><span class="state" id="tState"></span><span class="sw" aria-hidden="true"></span>
+          </button>
+          <button class="round" id="settingsBtn">
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h9M17 6h2M3 16h2M10 16h9"/><circle cx="14.5" cy="6" r="2.5"/><circle cx="7.5" cy="16" r="2.5"/></svg>
+          </button>
+        </div>
+        <div class="note" id="note" role="status" hidden>
+          <span id="noteText"></span>
+          <div class="acts" id="noteActs" hidden>
+            <button class="main" id="noteMain"></button>
+            <button id="noteSub"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="caps" id="caps" hidden>
+        <div class="line tr" id="capTr"></div>
+        <div class="line or" id="capOr">Discover a new perspective.</div>
+      </div>
+    </div>
+  </div>
+  <p class="legend" id="legend"></p>
+</div>
+
+<script>
+const M = {
+  ja: {
+    label: '翻訳', on: 'オン', off: 'オフ',
+    toggleAria: 'この動画の字幕を翻訳する', settings: '設定を開く',
+    loading: '字幕を準備しています…',
+    waiting: '送信間隔を調整しています。自動で続行します。',
+    error: '字幕を取得できませんでした。YouTubeの「文字起こしを表示」で原文の言語を確認してください。',
+    noKey: 'APIキーが未登録です。設定で登録してから、もう一度オンにしてください。',
+    errorShort: '字幕を取得できませんでした。', noKeyShort: 'APIキーが未登録です。',
+    reload: '字幕を再取得', openSettings: '設定を開く',
+    pending: '翻訳中…',
+    zoneTop: 'YouTube本体の領域（タイトル・カードなど）— 拡張は何も置かない',
+    zoneBottom: 'YouTube本体の操作バー — 拡張は何も置かない',
+    legend: '斜線の帯はYouTube本体が使う領域の目安です。拡張のボタンは右上の帯のすぐ下に置き、操作バーが隠れると一緒に消えます。字幕は操作バーが出ている間だけ上に逃げます。',
+  },
+  en: {
+    label: 'Translate', on: 'On', off: 'Off',
+    toggleAria: 'Translate captions for this video', settings: 'Open settings',
+    loading: 'Preparing captions…',
+    waiting: 'Spacing out requests to stay within the limit. This resumes automatically.',
+    error: "Couldn't load captions. Open “Show transcript” on YouTube and check the source language.",
+    noKey: 'No API key yet. Add one in Settings, then turn this on again.',
+    errorShort: "Couldn't load captions.", noKeyShort: 'No API key yet.',
+    reload: 'Reload captions', openSettings: 'Open settings',
+    pending: 'Translating…',
+    zoneTop: "YouTube's own area (title, cards) — the extension places nothing here",
+    zoneBottom: "YouTube's own control bar — the extension places nothing here",
+    legend: "Hatched bands mark the areas YouTube itself uses. The extension's buttons sit just below the top band and fade out with the player controls. Captions move up only while the control bar is showing.",
+  },
+};
+const q = new URLSearchParams(location.search);
+const st = {
+  lang: q.get('lang') === 'en' ? 'en' : 'ja',
+  state: q.get('state') || 'off',
+  chrome: q.get('chrome') === 'hidden' ? 'hidden' : 'shown',
+  pos: q.get('pos') === 'top' ? 'top' : 'bottom',
+  mode: q.get('mode') === 'translation' ? 'translation' : 'bilingual',
+  size: q.get('size') || 'normal',
+};
+const $ = id => document.getElementById(id);
+
+function render() {
+  const t = M[st.lang];
+  document.documentElement.lang = st.lang;
+  const enabled = st.state !== 'off';
+  const showCaps = ['on', 'pending', 'waiting'].includes(st.state);
+  const noteKey = { loading: 'loading', waiting: 'waiting', error: 'error', noKey: 'noKey' }[st.state];
+  const isAlert = st.state === 'error' || st.state === 'noKey';
+
+  $('tLabel').textContent = t.label;
+  $('tState').textContent = enabled ? t.on : t.off;
+  $('toggle').setAttribute('aria-checked', String(enabled));
+  $('toggle').setAttribute('aria-label', t.toggleAria);
+  $('settingsBtn').setAttribute('aria-label', t.settings);
+  $('settingsBtn').title = t.settings;
+
+  $('note').hidden = !noteKey;
+  $('note').className = 'note' + (isAlert ? ' alert' : '');
+  const compact = st.size === 'small' && isAlert; // small players get the short wording
+  $('noteText').textContent = noteKey ? t[compact ? noteKey + 'Short' : noteKey] : '';
+  $('noteActs').hidden = !isAlert;
+  $('noteMain').textContent = st.state === 'noKey' ? t.openSettings : t.reload;
+  $('noteSub').textContent = t.openSettings;
+  $('noteSub').hidden = st.state === 'noKey';
+  // The dock stays on screen while it has a message, even when the player hides its controls.
+  $('dock').dataset.sticky = String(Boolean(noteKey));
+
+  $('caps').hidden = !showCaps;
+  $('caps').dataset.pos = st.pos;
+  const pending = st.state === 'pending' || st.state === 'waiting';
+  $('capTr').textContent = pending ? t.pending : '新しい視点に、出会おう。';
+  $('capTr').classList.toggle('pending', pending);
+  $('capOr').hidden = st.mode !== 'bilingual';
+
+  $('player').dataset.chrome = st.chrome;
+  $('stage').classList.toggle('full', st.size === 'full');
+  $('player').style.width = st.size === 'small' ? '460px' : '';
+  document.documentElement.style.setProperty('--demo-h', document.querySelector('.demo').offsetHeight + 'px');
+  $('zoneTop').textContent = t.zoneTop;
+  $('zoneBottom').textContent = t.zoneBottom;
+  $('legend').textContent = t.legend;
+
+  for (const [id, key] of [['langSel', 'lang'], ['stateSel', 'state'], ['chromeSel', 'chrome'], ['posSel', 'pos'], ['modeSel', 'mode'], ['sizeSel', 'size']]) $(id).value = st[key];
+}
+for (const [id, key] of [['langSel', 'lang'], ['stateSel', 'state'], ['chromeSel', 'chrome'], ['posSel', 'pos'], ['modeSel', 'mode'], ['sizeSel', 'size']]) {
+  $(id).addEventListener('change', e => { st[key] = e.target.value; render(); });
+}
+let timer;
+$('toggle').addEventListener('click', () => {
+  clearTimeout(timer);
+  if (st.state === 'off') { st.state = 'loading'; timer = setTimeout(() => { st.state = 'on'; render(); }, 1400); }
+  else st.state = 'off';
+  render();
+});
+$('noteMain').addEventListener('click', () => { if (st.state === 'error') { st.state = 'loading'; render(); timer = setTimeout(() => { st.state = 'on'; render(); }, 1400); } });
+render();
+window.addEventListener('resize', render);
+</script>
+</body>
+</html>
