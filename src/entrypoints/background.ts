@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser';
 import { clearCache } from '../background/cache';
-import { lockStorage, publicSettings, readSettings, readUiLanguage, saveSettings, saveUiLanguage } from '../background/settings-store';
+import { deleteApiKey, lockStorage, publicSettings, readSettings, readUiLanguage, saveSettings, saveUiLanguage } from '../background/settings-store';
 import { translate } from '../background/translator';
 import { failure } from '../core/providers';
 import { isOptionsPage, isYouTubePage } from '../core/security';
@@ -57,6 +57,13 @@ export default defineBackground(() => {
         case 'kotonoha:clear-cache': {
           if (!options) return failure('FORBIDDEN', 'error.deleteOptionsOnly');
           await clearCache(); return { ok: true, value: null };
+        }
+        case 'kotonoha:delete-api-key': {
+          if (!options) return failure('FORBIDDEN', 'error.deleteOptionsOnly');
+          const provider = await deleteApiKey(message.provider);
+          const value = await publicSettings();
+          if (provider === value.settings.provider) await notifyYouTubeTabs({ type: 'kotonoha:settings-changed' });
+          return { ok: true, value };
         }
         default: return failure('CONFIG', 'error.unknownOperation');
       }

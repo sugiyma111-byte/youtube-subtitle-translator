@@ -1,37 +1,105 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="manifest.open_in_tab" content="true"><title data-i18n="options.title"></title></head>
-<body>
-  <main class="layout">
-    <header class="brand"><span class="logo" aria-hidden="true">字</span><div><strong data-i18n="app.name"></strong><div class="eyebrow" data-i18n="app.subtitle"></div></div><span class="badge version">0.1.0</span></header>
-    <div class="intro"><p class="eyebrow" data-i18n="app.tagline"></p><h1 data-i18n="options.heading"></h1><p class="muted" data-i18n="options.intro"></p><label><span data-i18n="language.label"></span><select id="uiLanguage"></select></label></div>
-    <div class="columns">
-      <form id="settings-form">
-        <section class="card"><div class="section-title"><span class="step">01</span><h2 data-i18n="options.service"></h2></div>
-          <label><span data-i18n="options.provider"></span><select id="provider"><option value="sarashina" data-i18n="options.sarashina"></option><option value="openai-compatible" data-i18n="options.compatible"></option></select></label>
-          <div id="custom-fields" hidden class="stack"><label><span data-i18n="options.baseUrl"></span><input id="customBaseUrl" type="url" placeholder="https://example.com/v1"><small data-i18n="options.baseUrlHint"></small></label><label><span data-i18n="options.model"></span><input id="customModel" data-i18n-placeholder="options.modelPlaceholder" maxlength="200"></label><label><span data-i18n="options.rpm"></span><input id="customRpm" type="number" min="1" max="120" value="30"></label></div>
-          <label class="key-label"><span data-i18n="options.apiKey"></span> <span id="key-status" class="muted"></span><input id="apiKey" type="password" autocomplete="off" spellcheck="false" maxlength="4096"></label>
-          <div class="row"><small data-i18n="options.keyStorage"></small><button id="remove-key" class="text-button" type="button" data-i18n="options.removeKey"></button></div>
-        </section>
-        <section class="card"><div class="section-title"><span class="step">02</span><h2 data-i18n="options.languages"></h2></div>
-          <div class="two"><label><span data-i18n="options.sourceLang"></span><select id="sourceLang"></select></label><label><span data-i18n="options.targetLang"></span><select id="targetLang"></select></label></div>
-          <div class="two custom-languages" id="custom-language-fields" hidden><label><span data-i18n="options.sourceCode"></span><input id="sourceCode" data-i18n-placeholder="options.sourceCodePlaceholder"></label><label><span data-i18n="options.targetCode"></span><input id="targetCode" data-i18n-placeholder="options.targetCodePlaceholder"></label></div>
-          <label class="spaced"><span data-i18n="options.style"></span><select id="style"><option value="auto" data-i18n="options.styleAuto"></option><option value="plain" data-i18n="options.stylePlain"></option><option value="polite" data-i18n="options.stylePolite"></option></select></label>
-          <small id="language-note"></small>
-        </section>
-        <section class="card"><div class="section-title"><span class="step">03</span><h2 data-i18n="options.appearance"></h2></div>
-          <div class="two"><label><span data-i18n="options.displayMode"></span><select id="displayMode"><option value="bilingual" data-i18n="options.bilingual"></option><option value="translation" data-i18n="options.translationOnly"></option></select></label><label><span data-i18n="options.position"></span><select id="position"><option value="bottom" data-i18n="options.bottom"></option><option value="top" data-i18n="options.top"></option></select></label></div>
-          <label class="spaced"><span data-i18n="options.fontSize"></span> <output id="font-output"></output><input id="fontSize" type="range" min="16" max="48" value="26"></label>
-          <label class="spaced"><span data-i18n="options.lookahead"></span> <output id="lookahead-output"></output><input id="lookaheadSeconds" type="range" min="10" max="90" step="5" value="30"><small data-i18n="options.lookaheadHint"></small></label>
-        </section>
-        <div class="actions"><button class="primary" type="submit" id="save" data-i18n="options.save"></button><button type="button" id="test" data-i18n="options.test"></button></div>
-        <p id="message" class="message" role="status" aria-live="polite"></p>
-      </form>
-      <aside>
-        <div class="preview-card"><div class="preview-header"><span class="preview-dot"></span><span data-i18n="options.preview"></span></div><div class="preview-screen"><div class="landscape"><span></span><span></span><span></span></div><div id="preview-caption"><div id="preview-translation" data-i18n="options.previewTranslation"></div><div id="preview-original" data-i18n="options.previewOriginal"></div></div><div class="preview-progress"></div></div><p><span data-i18n="options.previewFirst"></span><br><span data-i18n="options.previewSecond"></span></p></div>
-        <div class="help"><h2 data-i18n="options.help"></h2><ol><li data-i18n="options.helpFirst"></li><li data-i18n="options.helpSecond"></li><li data-i18n="options.helpThird"></li></ol><p data-i18n="options.helpCaptions"></p><p data-i18n="options.privacy"></p><button id="clear-cache" type="button" data-i18n="options.clearCache"></button><p><a href="https://docs.sarashina.ai/" target="_blank" rel="noreferrer" data-i18n="options.apiDocs"></a></p></div>
-      </aside>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="manifest.open_in_tab" content="true">
+  <title data-i18n="options.title"></title>
+</head>
+<body class="settings-page" data-i18n-pending data-settings-pending>
+  <header class="settings-header">
+    <div class="header-content">
+      <div class="settings-brand">
+        <img src="/icon.svg" width="36" height="36" alt="">
+        <div><h1 data-i18n="app.name"></h1><p><span data-i18n="options.heading"></span> · v<span id="version"></span></p></div>
+      </div>
+      <div class="language-control" role="group" aria-labelledby="ui-language-label">
+        <span id="ui-language-label"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="3.4" ry="8"/><path d="M2 10h16"/></svg><span data-i18n="language.label"></span></span>
+        <div id="uiLanguage" class="segments">
+          <button type="button" data-ui-language="auto" data-i18n-title="options.uiAutoHint" aria-pressed="false" disabled></button>
+          <button type="button" data-ui-language="ja" lang="ja" aria-pressed="false" disabled></button>
+          <button type="button" data-ui-language="en" lang="en" aria-pressed="false" disabled></button>
+        </div>
+      </div>
     </div>
+  </header>
+
+  <main class="settings-layout">
+    <div class="page-intro"><h2 id="settings-heading" data-i18n="options.heading"></h2><p data-i18n="options.intro"></p><button id="reload-settings" class="button" type="button" data-i18n="options.loadRetry" hidden></button></div>
+    <form id="settings-form" novalidate>
+      <fieldset id="settings-fields" aria-labelledby="settings-heading" disabled>
+        <section class="settings-block" aria-labelledby="service-heading">
+          <h3 id="service-heading" data-i18n="options.service"></h3>
+          <p class="section-lead" data-i18n="options.serviceLead"></p>
+          <div id="provider" class="provider-choices" role="radiogroup" aria-labelledby="service-heading">
+            <label class="provider-choice"><input type="radio" name="provider" value="sarashina" checked><span><strong data-i18n="provider.sarashina"></strong><span data-i18n="options.sarashinaDescription"></span></span></label>
+            <label class="provider-choice"><input type="radio" name="provider" value="openai-compatible"><span><strong data-i18n="provider.compatible"></strong><span data-i18n="options.compatibleDescription"></span></span></label>
+          </div>
+          <p class="hint" data-i18n="options.serviceNote"></p>
+          <div id="custom-fields" hidden>
+            <div class="field"><label for="customBaseUrl" data-i18n="options.baseUrl"></label><input id="customBaseUrl" type="url" placeholder="https://example.com/v1"><p class="hint" data-i18n="options.baseUrlHint"></p></div>
+            <div class="field-columns">
+              <div class="field"><label for="customModel" data-i18n="options.model"></label><input id="customModel" type="text" data-i18n-placeholder="options.modelPlaceholder" maxlength="200"></div>
+              <div class="field"><label for="customRpm" data-i18n="options.rpm"></label><input id="customRpm" type="number" min="1" max="120" value="30"></div>
+            </div>
+          </div>
+          <div class="key-section" id="apikey">
+            <h4><span id="key-title"></span><span id="key-status" class="key-badge"></span></h4>
+            <div class="field"><label for="apiKey" data-i18n="options.apiKey"></label><div class="key-input"><input id="apiKey" type="password" autocomplete="off" spellcheck="false" maxlength="4096"><button id="show-key" class="button" type="button" aria-pressed="false"></button></div><p class="hint" data-i18n="options.keyHint"></p></div>
+            <div class="key-warning" role="note" aria-labelledby="warning-title">
+              <strong><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5 19 18H1z" fill="currentColor"/><path d="M10 7.5v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="15" r="1.1" fill="#fff"/></svg><span id="warning-title" data-i18n="options.warningTitle"></span></strong>
+              <ul><li data-i18n="options.warningPlainText"></li><li data-i18n="options.warningAccess"></li><li data-i18n="options.warningDestination"></li></ul>
+              <a class="tap-link" href="https://github.com/sugiyma111-byte/youtube-subtitle-translator/blob/main/docs/PRIVACY.md" target="_blank" rel="noreferrer" data-i18n="options.warningLink"></a>
+            </div>
+            <div class="button-row"><button id="test" class="button primary" type="button" data-i18n="options.test"></button><button id="remove-key" class="button danger" type="button" data-i18n="options.removeKey"></button><a id="get-key" class="tap-link" href="https://chat.sarashina.ai/dashboard/api-keys" target="_blank" rel="noreferrer" data-i18n="options.getKey"></a></div>
+            <p id="connection-result" class="result" role="status" aria-live="polite" hidden></p>
+          </div>
+        </section>
+
+        <section class="settings-block" aria-labelledby="languages-heading">
+          <h3 id="languages-heading" data-i18n="options.languages"></h3><p id="language-note" class="section-lead"></p>
+          <div class="language-pair">
+            <div><label for="sourceLang" data-i18n="options.sourceLang"></label><select id="sourceLang"></select></div>
+            <button id="swap-languages" class="button icon-button" type="button" data-i18n-aria-label="options.swapLanguages" data-i18n-title="options.swapLanguages"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h13l-3-3M17 13H4l3 3"/></svg></button>
+            <div><label for="targetLang" data-i18n="options.targetLang"></label><select id="targetLang"></select></div>
+          </div>
+          <div id="custom-language-fields" class="field-columns" hidden>
+            <div class="field"><label for="sourceCode" data-i18n="options.sourceCode"></label><input id="sourceCode" type="text" data-i18n-placeholder="options.sourceCodePlaceholder"></div>
+            <div class="field"><label for="targetCode" data-i18n="options.targetCode"></label><input id="targetCode" type="text" data-i18n-placeholder="options.targetCodePlaceholder"></div>
+          </div>
+          <fieldset class="field choice-field"><legend data-i18n="options.style"></legend><div id="style" class="segments wide">
+            <label><input type="radio" name="style" value="auto" checked><span data-i18n="options.styleAuto"></span></label><label><input type="radio" name="style" value="plain"><span data-i18n="options.stylePlain"></span></label><label><input type="radio" name="style" value="polite"><span data-i18n="options.stylePolite"></span></label>
+          </div><p class="hint" data-i18n="options.styleHint"></p></fieldset>
+        </section>
+
+        <section class="settings-block" aria-labelledby="appearance-heading">
+          <h3 id="appearance-heading" data-i18n="options.appearance"></h3><p class="section-lead" data-i18n="options.appearanceLead"></p>
+          <div class="field-columns">
+            <fieldset class="choice-field"><legend data-i18n="options.displayMode"></legend><div id="displayMode" class="segments wide"><label><input type="radio" name="displayMode" value="bilingual" checked><span data-i18n="options.bilingual"></span></label><label><input type="radio" name="displayMode" value="translation"><span data-i18n="options.translationOnly"></span></label></div></fieldset>
+            <fieldset class="choice-field"><legend data-i18n="options.position"></legend><div id="position" class="segments wide"><label><input type="radio" name="position" value="bottom" checked><span data-i18n="options.bottom"></span></label><label><input type="radio" name="position" value="top"><span data-i18n="options.top"></span></label></div></fieldset>
+          </div>
+          <div class="field"><label class="range-label" for="fontSize"><span data-i18n="options.fontSize"></span><output id="font-output" for="fontSize"></output></label><div class="range-control"><button class="button icon-button" type="button" data-step="fontSize" data-direction="-1" data-i18n-aria-label="options.fontSmaller">−</button><input id="fontSize" type="range" min="16" max="48" value="26"><button class="button icon-button" type="button" data-step="fontSize" data-direction="1" data-i18n-aria-label="options.fontLarger">+</button></div></div>
+          <div class="field"><label class="range-label" for="lookaheadSeconds"><span data-i18n="options.lookahead"></span><output id="lookahead-output" for="lookaheadSeconds"></output></label><div class="range-control"><button class="button icon-button" type="button" data-step="lookaheadSeconds" data-direction="-1" data-i18n-aria-label="options.lookaheadShorter">−</button><input id="lookaheadSeconds" type="range" min="10" max="90" step="5" value="30"><button class="button icon-button" type="button" data-step="lookaheadSeconds" data-direction="1" data-i18n-aria-label="options.lookaheadLonger">+</button></div><p class="hint" data-i18n="options.lookaheadHint"></p></div>
+        </section>
+      </fieldset>
+
+      <section class="settings-block" id="stored-data" aria-labelledby="data-heading">
+        <h3 id="data-heading" data-i18n="options.dataTitle" tabindex="-1"></h3><p class="section-lead" data-i18n="options.dataLead"></p>
+        <div class="data-row"><div><strong data-i18n="options.cacheName"></strong><p data-i18n="options.cacheDescription"></p></div><button id="clear-cache" class="button danger" type="button" data-i18n="options.clearCache" disabled></button></div>
+        <div class="data-row"><div><strong data-i18n="options.keySarashina"></strong><span id="key-status-sarashina" class="key-badge"></span></div><button class="button danger" type="button" data-delete-provider="sarashina" data-i18n="options.delete" disabled></button></div>
+        <div class="data-row"><div><strong data-i18n="options.keyCompatible"></strong><span id="key-status-openai-compatible" class="key-badge"></span></div><button class="button danger" type="button" data-delete-provider="openai-compatible" data-i18n="options.delete" disabled></button></div>
+        <p class="hint" data-i18n="options.revokeNote"></p>
+      </section>
+    </form>
+
+    <aside>
+      <section class="preview-card" aria-labelledby="preview-heading"><h3 id="preview-heading" data-i18n="options.preview"></h3><div class="preview-screen" aria-hidden="true"><div class="landscape"><i></i><i></i><i></i></div><div id="preview-caption"><div id="preview-translation" data-i18n="options.previewTranslation"></div><div id="preview-original" data-i18n="options.previewOriginal"></div></div></div><p data-i18n="options.previewNote"></p></section>
+      <section class="help-card" aria-labelledby="help-heading"><h3 id="help-heading" data-i18n="options.help"></h3><ol><li id="help-key" data-i18n="options.helpFirst"></li><li data-i18n="options.helpSecond"></li><li data-i18n="options.helpThird"></li></ol><div class="help-links"><p data-i18n="options.privacy"></p><a class="tap-link" href="https://github.com/sugiyma111-byte/youtube-subtitle-translator/blob/main/docs/USER_GUIDE.md" target="_blank" rel="noreferrer" data-i18n="options.guideLink"></a><a class="tap-link" href="https://github.com/sugiyma111-byte/youtube-subtitle-translator/blob/main/docs/PRIVACY.md" target="_blank" rel="noreferrer" data-i18n="options.privacyLink"></a></div></section>
+    </aside>
   </main>
+
+  <footer id="save-bar" class="save-bar" data-dirty="false"><div class="save-bar-content"><span class="dirty-dot" aria-hidden="true"></span><div class="save-status" role="status" aria-live="polite"><p id="dirty-status"></p><p id="message" hidden></p></div><button id="save" form="settings-form" class="button" type="submit" data-i18n="options.save" disabled></button></div></footer>
+  <dialog id="confirm-delete" aria-labelledby="delete-title" aria-describedby="delete-description"><h2 id="delete-title"></h2><p id="delete-description"></p><p id="delete-error" class="result" role="alert" hidden></p><div class="button-row"><button id="cancel-delete" class="button" type="button" data-i18n="options.cancel" autofocus></button><button id="confirm-delete-button" class="button danger solid" type="button" data-i18n="options.confirmDelete"></button></div></dialog>
   <script type="module" src="./main.ts"></script>
-</body></html>
+</body>
+</html>

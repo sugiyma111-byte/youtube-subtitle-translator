@@ -25,3 +25,65 @@ h1, h2, p { margin-top: 0; }
 .message { min-height: 24px; line-height: 1.7; font-size: 14px; white-space: pre-wrap; }
 .message[data-error=true] { color: #a1392b; }
 @media (prefers-reduced-motion: no-preference) { button { transition: background .15s ease; } }
+
+/* Settings design tokens and shared controls. The popup keeps its current layout. */
+:root {
+  --ink: #17212b;
+  --slate: #4b5967;
+  --paper: #eef1f4;
+  --surface: #fff;
+  --line: #c5cdd6;
+  --line-strong: #6b7785;
+  --caption-yellow: #ffd84a;
+  --plate: #0d1218;
+  --warning: #9a3b00;
+  --warning-bg: #fff1e6;
+  --danger: #b42318;
+  --success: #0b6b45;
+  --success-bg: #e4f4ec;
+  --focus: #1d5fd3;
+  --ui-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'BIZ UDPGothic', 'Hiragino Sans', 'Yu Gothic UI', Meiryo, sans-serif;
+}
+body[data-i18n-pending], body[data-settings-pending] { visibility: hidden; }
+.settings-page { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font: 15px/1.65 var(--ui-font); }
+.settings-page :is(h1, h2, h3, h4, p) { margin: 0; }
+.settings-page :is(button, input, select) { font: inherit; color: inherit; }
+.settings-page :is(button, input, select, a):focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.settings-page :is(label, legend) { display: block; font-weight: 600; font-size: 15px; }
+.settings-page label { margin-bottom: 6px; }
+.settings-page fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.settings-page legend { padding: 0; margin-bottom: 6px; }
+.settings-page :is(input[type=text], input[type=url], input[type=password], input[type=number], select) { width: 100%; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--line-strong); border-radius: 8px; background: var(--surface); }
+.settings-page input::placeholder { color: #5b6875; }
+.settings-page .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 8px 18px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--surface); font-weight: 600; line-height: 1.35; cursor: pointer; white-space: normal; }
+.settings-page .button:hover { background: #e3e8ed; }
+.settings-page .button.primary { color: #fff; background: var(--ink); }
+.settings-page .button.primary:hover { background: #2a3947; }
+.settings-page .button.danger { color: var(--danger); border-color: var(--danger); }
+.settings-page .button.danger:hover { background: #fbe9e7; }
+.settings-page .button.danger.solid { background: var(--danger); color: #fff; }
+.settings-page :is(button:disabled, input:disabled, select:disabled) { cursor: default; }
+.settings-page .button:disabled { opacity: .55; }
+.settings-page .icon-button { width: 44px; height: 44px; padding: 0; flex: none; font-size: 20px; }
+.settings-page .button-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.settings-page a { color: inherit; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.settings-page .tap-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; }
+.settings-page .hint { margin-top: 6px; color: var(--slate); font-size: 13px; }
+.settings-page .field { margin-top: 18px; }
+.settings-page .field-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.settings-page .segments { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--surface); }
+.settings-page .segments.wide { display: flex; }
+.settings-page .segments :is(button, label) { position: relative; flex: 1; display: flex; align-items: stretch; min-width: 44px; margin: 0; padding: 0; border: 0; border-right: 1.5px solid var(--ink); border-radius: 0; background: none; font-size: 14px; font-weight: 600; line-height: 1.35; cursor: pointer; }
+.settings-page .segments > :last-child { border-right: 0; border-radius: 0 6px 6px 0; }
+.settings-page .segments > :first-child { border-radius: 6px 0 0 6px; }
+.settings-page .segments button, .settings-page .segments label > span { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 44px; padding: 10px 12px; text-align: center; border-radius: inherit; }
+.settings-page .segments input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.settings-page .segments label:hover > span, .settings-page .segments button:hover { background: var(--paper); }
+.settings-page .segments button[aria-pressed=true], .settings-page .segments input:checked + span { background: var(--ink); color: #fff; }
+.settings-page .segments button:focus-visible, .settings-page .segments label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: -4px; box-shadow: inset 0 0 0 5px #fff; }
+.settings-page .segments label:has(input:disabled) { opacity: .55; }
+.settings-page .key-badge { display: inline-flex; align-items: center; padding: 2px 10px; border: 1.5px solid var(--line-strong); border-radius: 12px; color: var(--slate); background: var(--surface); font-size: 13px; font-weight: 600; }
+.settings-page .key-badge[data-saved=true] { border-color: var(--success); color: var(--success); background: var(--success-bg); }
+.settings-page .result { margin-top: 14px; padding: 10px 14px; border: 1.5px solid var(--success); border-radius: 8px; background: var(--success-bg); color: #073d28; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.settings-page .result[data-error=true] { border-color: var(--danger); background: #fff1ef; color: #851a12; }
+@media (max-width: 560px) { .settings-page .field-columns { grid-template-columns: minmax(0, 1fr); } }

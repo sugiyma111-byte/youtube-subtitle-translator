@@ -50,7 +50,7 @@ describe('UI dictionaries', () => {
     expect(document.querySelector('button')?.textContent).toBe('Start translating');
     expect(document.querySelector('button')?.getAttribute('aria-label')).toBe('Start translating');
     expect(document.querySelector('button')?.title).toBe(en['overlay.toggleTitle']);
-    expect(document.querySelector('input')?.placeholder).toBe('Enter your API key');
+    expect(document.querySelector('input')?.placeholder).toBe(en['options.keyPlaceholder']);
     applyI18n(document, 'ja');
     expect(document.documentElement.lang).toBe('ja');
     expect(document.querySelector('button')?.textContent).toBe('翻訳を開始');
