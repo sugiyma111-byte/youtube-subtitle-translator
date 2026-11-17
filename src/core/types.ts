@@ -43,7 +43,12 @@ export interface TranslationInput {
 export type ErrorCode = 'AUTH' | 'RATE_LIMIT' | 'NETWORK' | 'CONFIG' | 'RESPONSE' | 'UNSUPPORTED' | 'FORBIDDEN';
 export interface Failure extends LocalizedMessage { ok: false; code: ErrorCode; retryAfterMs?: number }
 export type Result<T> = { ok: true; value: T } | Failure;
-export interface PublicSettings { settings: Settings; hasApiKey: boolean; uiLanguage: UiLanguage }
+export interface PublicSettings {
+  settings: Settings;
+  hasApiKey: boolean;
+  hasApiKeys: Record<ProviderId, boolean>;
+  uiLanguage: UiLanguage;
+}
 export interface PlayerStatus {
   enabled: boolean;
   phase: 'idle' | 'loading' | 'ready' | 'waiting' | 'error';

@@ -1,6 +1,7 @@
 import { chromium, expect, test, type BrowserContext, type Worker } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { DEFAULT_SETTINGS } from '../../src/core/settings';
 declare const chrome: typeof import('wxt/browser').browser;
 
 let context: BrowserContext;
@@ -76,11 +77,12 @@ test('saves credentials, translates, seeks, caches, stops on navigation and isol
   ]);
   await expect(options).toHaveURL(`chrome-extension://${extensionId}/options.html`);
   await popup.close();
-  await options.getByLabel('APIキー', { exact: false }).fill('test-only-not-a-real-api-key');
-  await options.getByRole('button', { name: '設定を保存', exact: true }).click();
+  await options.getByRole('textbox', { name: 'APIキー', exact: true }).fill('test-only-not-a-real-api-key');
+  await options.getByRole('button', { name: '変更を保存', exact: true }).click();
   await expect(options.locator('#message')).toContainText('設定を保存しました');
   await expect(options.locator('#apiKey')).toHaveValue('');
   await options.getByRole('button', { name: '保存した訳文を削除' }).click();
+  await options.getByRole('dialog').getByRole('button', { name: '削除する', exact: true }).click();
   await expect(options.locator('#message')).toContainText('保存した訳文を削除しました');
   await fs.mkdir('artifacts', { recursive: true });
   await options.screenshot({ path: 'artifacts/settings.png', fullPage: true });
@@ -119,7 +121,8 @@ test('saves credentials, translates, seeks, caches, stops on navigation and isol
   await expect(overlay.locator('.captions')).toBeHidden();
   expect(errors).toEqual([]);
 
-  await options.getByRole('button', { name: '登録したキーを削除' }).click();
+  await options.getByRole('button', { name: 'このキーを削除', exact: true }).click();
+  await options.getByRole('dialog').getByRole('button', { name: '削除する', exact: true }).click();
   await expect(options.locator('#message')).toContainText('APIキーを削除しました');
   await overlay.getByRole('button', { name: '翻訳 OFF', exact: true }).click();
   await expect(overlay.locator('.status')).toContainText('APIキーを登録');
@@ -154,9 +157,9 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
   const automaticLanguage = await options.evaluate(() => chrome.i18n.getUILanguage().toLowerCase().startsWith('ja') ? 'ja' : 'en');
-  await expect(options.locator('#uiLanguage')).toHaveValue('auto');
+  await expect(options.locator('[data-ui-language=auto]')).toHaveAttribute('aria-pressed', 'true');
   await expect(options.locator('html')).toHaveAttribute('lang', automaticLanguage);
-  await options.locator('#uiLanguage').selectOption('ja');
+  await options.locator('[data-ui-language=ja]').click();
   await expect(options.locator('html')).toHaveAttribute('lang', 'ja');
   const settingsBefore = await worker.evaluate(async () => JSON.stringify((await chrome.storage.local.get('settings')).settings));
 
@@ -177,17 +180,17 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   const apiCallsBefore = await worker.evaluate(() => (globalThis as unknown as { apiCalls: string[] }).apiCalls.length);
 
   // These unsaved values must survive re-labeling, including a custom language.
-  await options.locator('#provider').selectOption('openai-compatible');
+  await options.locator('input[name=provider][value=openai-compatible]').check();
   await options.locator('#customBaseUrl').fill('https://example.com/v1');
   await options.locator('#customModel').fill('unsaved-model');
   await options.locator('#sourceLang').selectOption('custom');
   await options.locator('#sourceCode').fill('it');
   await options.locator('#apiKey').fill('unsaved-test-only');
   await options.locator('#fontSize').fill('32');
-  await options.locator('#uiLanguage').selectOption('en');
+  await options.locator('[data-ui-language=en]').click();
   await expect(options.locator('html')).toHaveAttribute('lang', 'en');
   await expect(options).toHaveTitle('Caption Translator for YouTube Settings');
-  await expect(options.getByRole('button', { name: 'Save settings', exact: true })).toBeVisible();
+  await expect(options.getByRole('button', { name: 'Save changes', exact: true })).toBeVisible();
   await expect(options.locator('#targetLang option:checked')).toHaveText('Japanese');
   await expect(options.locator('#customModel')).toHaveValue('unsaved-model');
   await expect(options.locator('#sourceLang')).toHaveValue('custom');
@@ -207,12 +210,12 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   await expect(popup.locator('#progress')).toHaveText('2 of 3 segments translated');
   await popup.locator('#uiLanguage').selectOption('ja');
   await expect(options.locator('html')).toHaveAttribute('lang', 'ja');
-  await expect(options.locator('#uiLanguage')).toHaveValue('ja');
+  await expect(options.locator('[data-ui-language=ja]')).toHaveAttribute('aria-pressed', 'true');
   await expect(overlay.getByRole('button', { name: '翻訳 ON', exact: true })).toBeVisible();
   await expect(popup.locator('#language-pair')).toHaveText('英語 → 日本語');
   await expect(popup.locator('#progress')).toHaveText('2 / 3 区間を翻訳済み');
   await popup.locator('#uiLanguage').selectOption('auto');
-  await expect(options.locator('#uiLanguage')).toHaveValue('auto');
+  await expect(options.locator('[data-ui-language=auto]')).toHaveAttribute('aria-pressed', 'true');
   await expect(options.locator('html')).toHaveAttribute('lang', automaticLanguage);
   await expect(overlay).toHaveAttribute('lang', automaticLanguage);
 
@@ -232,15 +235,225 @@ test('persists UI language, synchronizes open pages and keeps translation and un
 test('re-localizes an existing validation error and rejects invalid preferences', async () => {
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/options.html`);
-  await options.locator('#uiLanguage').selectOption('ja');
+  await options.locator('[data-ui-language=ja]').click();
   await options.locator('#targetLang').selectOption('en');
-  await options.getByRole('button', { name: '設定を保存', exact: true }).click();
+  await options.getByRole('button', { name: '変更を保存', exact: true }).click();
   await expect(options.locator('#message')).toHaveText('原文と翻訳先には異なる言語を指定してください。');
-  await options.locator('#uiLanguage').selectOption('en');
+  await options.locator('[data-ui-language=en]').click();
   await expect(options.locator('#message')).toHaveText('Choose different source and target languages.');
   await expect(options.locator('#targetLang')).toHaveValue('en');
   const invalid = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:save-ui-language', uiLanguage: 'fr' }));
   expect(invalid).toMatchObject({ ok: false, messageKey: 'error.uiLanguage' });
   expect(invalid).not.toHaveProperty('message');
+  await options.close();
+});
+
+test('waits for the saved UI language before revealing extension pages', async () => {
+  await worker.evaluate(() => chrome.storage.local.set({ uiLanguage: 'ja' }));
+  for (const entry of ['options', 'popup']) {
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      const state = globalThis as unknown as { languageReadStarted: boolean; releaseLanguage: () => void };
+      const original = chrome.storage.local.get.bind(chrome.storage.local);
+      chrome.storage.local.get = (async (keys: string) => {
+        if (keys === 'uiLanguage') {
+          await new Promise<void>(resolve => { state.releaseLanguage = resolve; state.languageReadStarted = true; });
+        }
+        return original(keys);
+      }) as unknown as typeof chrome.storage.local.get;
+    });
+    await page.goto(`chrome-extension://${extensionId}/${entry}.html`);
+    await expect.poll(() => page.evaluate(() => (globalThis as unknown as { languageReadStarted: boolean }).languageReadStarted)).toBe(true);
+    await expect(page.locator('body')).toBeHidden();
+    await expect(page.locator('body')).toHaveAttribute('data-i18n-pending', '');
+    await page.evaluate(() => (globalThis as unknown as { releaseLanguage: () => void }).releaseLanguage());
+    await expect(page.locator('body')).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+    await page.close();
+  }
+});
+
+test('tracks settings edits separately from UI language and shows connection results by the key', async () => {
+  await worker.evaluate(async settings => {
+    await chrome.storage.session.clear();
+    await chrome.storage.local.remove(['key:sarashina', 'key:openai-compatible']);
+    await chrome.storage.local.set({ settings, uiLanguage: 'ja' });
+  }, DEFAULT_SETTINGS);
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  const save = options.getByRole('button', { name: '変更を保存', exact: true });
+  await expect(save).toBeDisabled();
+  await expect(options.locator('.key-warning')).toBeVisible();
+  await expect(options.locator('#key-status')).toHaveText('未登録');
+  await options.locator('[data-ui-language=en]').click();
+  await expect(options.locator('#dirty-status')).toHaveText('All changes saved.');
+  await expect(options.locator('#save')).toBeDisabled();
+  await options.locator('[data-ui-language=ja]').click();
+  await expect(options.locator('#save-bar')).toHaveAttribute('data-dirty', 'false');
+
+  await options.getByRole('button', { name: '文字を大きく', exact: true }).click();
+  await expect(options.locator('#fontSize')).toHaveValue('27');
+  await expect(save).toBeEnabled();
+  await options.getByRole('button', { name: '文字を小さく', exact: true }).click();
+  await expect(save).toBeDisabled();
+  await options.getByRole('button', { name: '文字を大きく', exact: true }).click();
+  await options.locator('[data-step=lookaheadSeconds][data-direction="1"]').click();
+  await options.getByRole('radio', { name: '敬体（です・ます）', exact: true }).check();
+  await options.getByRole('radio', { name: '訳文のみ', exact: true }).check();
+  await options.getByRole('radio', { name: '動画の上側', exact: true }).check();
+  await expect(options.locator('#preview-original')).toBeHidden();
+  await expect(options.locator('#preview-caption')).toHaveAttribute('data-position', 'top');
+  await options.getByRole('button', { name: '原文と翻訳先を入れ替える' }).click();
+  await expect(options.locator('#sourceLang')).toHaveValue('ja');
+  await expect(options.locator('#targetLang')).toHaveValue('en');
+  await options.locator('#apiKey').fill('test-only-not-a-real-api-key');
+  await options.getByRole('button', { name: '表示', exact: true }).click();
+  await expect(options.locator('#apiKey')).toHaveAttribute('type', 'text');
+  await options.getByRole('button', { name: '隠す', exact: true }).click();
+  await expect(options.locator('#apiKey')).toHaveAttribute('type', 'password');
+  await options.getByRole('button', { name: '保存して接続を確認', exact: true }).click();
+  await expect(options.locator('#connection-result')).toContainText('接続できました。');
+  await expect(options.locator('#apikey #connection-result')).toBeVisible();
+  await expect(options.locator('#message')).toContainText('設定を保存しました。');
+  await expect(options.locator('#message')).not.toContainText('接続できました。');
+  await expect(options.locator('#save-bar')).toHaveAttribute('data-dirty', 'false');
+  await expect(options.locator('#key-status')).toHaveText('登録済み（暗号化なし）');
+  await expect(options.locator('#help-key')).toHaveAttribute('data-done', 'true');
+  await expect(options.locator('.key-warning')).toBeVisible();
+  const stored = await worker.evaluate(async () => (await chrome.storage.local.get('settings')).settings);
+  expect(stored).toMatchObject({ sourceLang: 'ja', targetLang: 'en', fontSize: 27, lookaheadSeconds: 35, style: 'polite', displayMode: 'translation', position: 'top' });
+  await options.reload();
+  await expect(options.locator('#fontSize')).toHaveValue('27');
+  await expect(options.locator('input[name=style][value=polite]')).toBeChecked();
+  await expect(options.locator('#save')).toBeDisabled();
+  await options.close();
+});
+
+test('confirms each data deletion and preserves unrelated keys and unsaved invalid settings', async () => {
+  await worker.evaluate(settings => chrome.storage.local.set({ settings, uiLanguage: 'ja', 'key:sarashina': 'test-only-sarashina', 'key:openai-compatible': 'test-only-compatible' }), DEFAULT_SETTINGS);
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await expect(options.locator('#key-status-sarashina')).toHaveText('登録済み（暗号化なし）');
+  await expect(options.locator('#key-status-openai-compatible')).toHaveText('登録済み（暗号化なし）');
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  expect(await popup.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:delete-api-key', provider: 'sarashina' }))).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+  await popup.close();
+  await options.locator('input[name=provider][value=openai-compatible]').check();
+  await options.locator('#customBaseUrl').fill('not-a-url');
+  await options.locator('#customModel').fill('unsaved-model');
+  await options.locator('#apiKey').fill('unsaved-test-only');
+  await options.locator('#targetLang').selectOption('en');
+  const cache = options.getByRole('button', { name: '保存した訳文を削除', exact: true });
+  const dialog = options.getByRole('dialog');
+  await cache.click();
+  await expect(dialog).toHaveAccessibleName('保存した訳文を削除しますか？');
+  await expect(dialog.getByRole('button', { name: 'キャンセル' })).toBeFocused();
+  await dialog.getByRole('button', { name: 'キャンセル' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(cache).toBeFocused();
+  await expect(options.locator('#message')).toBeHidden();
+  await cache.click();
+  await dialog.getByRole('button', { name: '削除する', exact: true }).click();
+  await expect(options.locator('#message')).toHaveText('保存した訳文を削除しました。');
+
+  await options.locator('[data-delete-provider=sarashina]').click();
+  await expect(dialog).toHaveAccessibleName('Sarashina のAPIキーを削除しますか？');
+  await dialog.press('Escape');
+  expect(await worker.evaluate(async () => Boolean((await chrome.storage.local.get('key:sarashina'))['key:sarashina']))).toBe(true);
+  for (const provider of ['openai-compatible', 'sarashina']) {
+    await options.locator(`[data-delete-provider="${provider}"]`).click();
+    await dialog.getByRole('button', { name: '削除する', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(options.locator(`#key-status-${provider}`)).toHaveText('未登録');
+    await expect(options.locator(`[data-delete-provider="${provider}"]`)).toBeDisabled();
+    if (provider === 'openai-compatible') {
+      await expect(options.locator('#key-status-sarashina')).toHaveText('登録済み（暗号化なし）');
+    }
+  }
+  await expect(options.locator('#apiKey')).toHaveValue('unsaved-test-only');
+  await expect(options.locator('#customBaseUrl')).toHaveValue('not-a-url');
+  await expect(options.locator('#customModel')).toHaveValue('unsaved-model');
+  await expect(options.locator('#save-bar')).toHaveAttribute('data-dirty', 'true');
+  expect(await worker.evaluate(async () => (await chrome.storage.local.get('settings')).settings)).toEqual(DEFAULT_SETTINGS);
+  await options.close();
+});
+
+test('requests endpoint permission from the save gesture and clears old credentials only after approval', async () => {
+  const settings = { ...DEFAULT_SETTINGS, provider: 'openai-compatible', customBaseUrl: 'https://old.example/v1', customModel: 'test-model' };
+  await worker.evaluate(settings => chrome.storage.local.set({ settings, uiLanguage: 'en', 'key:sarashina': 'test-only-sarashina', 'key:openai-compatible': 'test-only-old-host' }), settings);
+  const options = await context.newPage();
+  // Chrome's native permission dialog is stubbed; the save path, messaging and key removal are real.
+  await options.addInitScript(() => {
+    const state = globalThis as unknown as { permissionAllowed: boolean; permissionRequests: unknown[] };
+    state.permissionAllowed = false;
+    state.permissionRequests = [];
+    chrome.permissions.request = (async permissions => {
+      state.permissionRequests.push({ permissions, userGesture: navigator.userActivation.isActive });
+      return state.permissionAllowed;
+    }) as typeof chrome.permissions.request;
+  });
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await options.locator('#customBaseUrl').fill('https://new.example/v1');
+  await options.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(options.locator('#message')).toHaveAttribute('data-error', 'true');
+  await expect(options.locator('#save-bar')).toHaveAttribute('data-dirty', 'true');
+  expect(await worker.evaluate(async () => (await chrome.storage.local.get('settings')).settings)).toEqual(settings);
+  expect(await worker.evaluate(async () => Boolean((await chrome.storage.local.get('key:openai-compatible'))['key:openai-compatible']))).toBe(true);
+  expect(await options.evaluate(() => (globalThis as unknown as { permissionRequests: unknown[] }).permissionRequests)).toEqual([{ permissions: { origins: ['https://new.example/*'] }, userGesture: true }]);
+
+  await options.evaluate(() => { (globalThis as unknown as { permissionAllowed: boolean }).permissionAllowed = true; });
+  await options.locator('#sourceLang').selectOption('custom');
+  await options.locator('#sourceCode').fill('it');
+  await options.locator('#targetLang').selectOption('de');
+  await options.getByRole('button', { name: 'Swap source and target' }).click();
+  await expect(options.locator('#sourceLang')).toHaveValue('de');
+  await expect(options.locator('#targetLang')).toHaveValue('custom');
+  await expect(options.locator('#targetCode')).toHaveValue('it');
+  await options.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(options.locator('#save-bar')).toHaveAttribute('data-dirty', 'false');
+  await expect(options.locator('#key-status')).toHaveText('Not set');
+  await expect(options.locator('#key-status-sarashina')).toHaveText('Saved (not encrypted)');
+  const stored = await worker.evaluate(() => chrome.storage.local.get(['settings', 'key:openai-compatible']));
+  expect(stored).not.toHaveProperty('key:openai-compatible');
+  expect(stored.settings).toMatchObject({ customBaseUrl: 'https://new.example/v1', sourceLang: 'de', targetLang: 'it', customModel: 'test-model', customRpm: 30 });
+  await options.close();
+});
+
+test('keeps every settings section and its controls usable at narrow Japanese and English widths', async () => {
+  await worker.evaluate(settings => chrome.storage.local.set({ settings, uiLanguage: 'ja' }), DEFAULT_SETTINGS);
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await fs.mkdir('artifacts', { recursive: true });
+  for (const language of ['ja', 'en']) {
+    await options.locator(`[data-ui-language=${language}]`).click();
+    for (const width of [1280, 760, 420, 320]) {
+      await options.setViewportSize({ width, height: 900 });
+      await options.locator('input[name=provider][value=openai-compatible]').check();
+      await options.locator('#sourceLang').selectOption('custom');
+      await options.locator('#sourceCode').fill('it');
+      for (const selector of ['#custom-fields', '#custom-language-fields', '.key-warning', '#stored-data', '.preview-card', '.help-card', '#save-bar']) {
+        await expect(options.locator(selector)).toBeVisible();
+      }
+      await options.locator('#clear-cache').click();
+      await expect(options.getByRole('dialog')).toBeInViewport();
+      await options.locator('#cancel-delete').click();
+      await options.locator('[data-step=fontSize][data-direction="1"]').click();
+      await options.locator('[data-step=fontSize][data-direction="-1"]').click();
+      const bounds = await options.evaluate(() => {
+        const issues: string[] = [];
+        for (const control of document.querySelectorAll<HTMLElement>('button, a, select, input')) {
+          if (!control.checkVisibility() || control.closest('dialog')) continue;
+          const target = control instanceof HTMLInputElement && control.type === 'radio' ? control.closest('label')! : control;
+          const rect = target.getBoundingClientRect();
+          if (rect.width < 43.5 || rect.height < 43.5 || rect.left < -.5 || rect.right > innerWidth + .5) issues.push(control.id || control.getAttribute('name') || control.textContent || 'control');
+        }
+        return { issues, pageWidth: document.documentElement.scrollWidth, viewport: innerWidth };
+      });
+      expect(bounds, `${language} at ${width}px`).toEqual({ issues: [], pageWidth: width, viewport: width });
+      await options.evaluate(() => scrollTo(0, 0));
+      await options.screenshot({ path: `artifacts/settings-${language}-${width}.png`, fullPage: true });
+    }
+  }
   await options.close();
 });

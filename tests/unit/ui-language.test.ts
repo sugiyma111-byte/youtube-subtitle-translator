@@ -4,15 +4,15 @@ import { MessageError } from '../../src/i18n';
 import type { Result } from '../../src/core/types';
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(), set: vi.fn(), sendMessage: vi.fn(), load: vi.fn(),
+  get: vi.fn(), set: vi.fn(), remove: vi.fn(), sendMessage: vi.fn(), load: vi.fn(),
 }));
 vi.mock('wxt/browser', () => ({ browser: {
-  storage: { local: { get: mocks.get, set: mocks.set } },
+  storage: { local: { get: mocks.get, set: mocks.set, remove: mocks.remove } },
   runtime: { sendMessage: mocks.sendMessage }, i18n: { getUILanguage: () => 'en-US' },
 } }));
 vi.mock('../../src/youtube/source', () => ({ youtubeCaptionSource: { load: mocks.load } }));
 
-import { publicSettings, readUiLanguage, saveUiLanguage } from '../../src/background/settings-store';
+import { deleteApiKey, publicSettings, readUiLanguage, saveSettings, saveUiLanguage } from '../../src/background/settings-store';
 import { VideoController } from '../../src/youtube/controller';
 
 describe('UI language storage', () => {
@@ -37,9 +37,53 @@ describe('UI language storage', () => {
     mocks.get.mockImplementation(async (key: string) => key === 'settings' ? { settings: DEFAULT_SETTINGS }
       : key === 'uiLanguage' ? { uiLanguage: 'en' } : { 'key:sarashina': 'test-only' });
     const result = await publicSettings();
-    expect(result).toEqual({ settings: DEFAULT_SETTINGS, hasApiKey: true, uiLanguage: 'en' });
+    expect(result).toEqual({ settings: DEFAULT_SETTINGS, hasApiKey: true, hasApiKeys: { sarashina: true, 'openai-compatible': false }, uiLanguage: 'en' });
     expect(JSON.stringify(result.settings)).toBe(JSON.stringify(DEFAULT_SETTINGS));
     expect(JSON.stringify(result)).not.toContain('test-only');
+  });
+});
+
+describe('saved API keys', () => {
+  let stored: Record<string, unknown>;
+  beforeEach(() => {
+    vi.resetAllMocks();
+    stored = { settings: DEFAULT_SETTINGS, uiLanguage: 'ja', 'key:sarashina': 'test-only-sarashina', 'key:openai-compatible': 'test-only-compatible' };
+    mocks.get.mockImplementation(async (key: string) => ({ [key]: stored[key] }));
+    mocks.set.mockImplementation(async (value: object) => { Object.assign(stored, value); });
+    mocks.remove.mockImplementation(async (key: string) => { delete stored[key]; });
+  });
+
+  it('reports both saved-key states without returning either key', async () => {
+    const value = await publicSettings();
+    expect(value.hasApiKeys).toEqual({ sarashina: true, 'openai-compatible': true });
+    expect(JSON.stringify(value)).not.toContain('test-only');
+  });
+
+  it('deletes only the selected key, without saving settings or changing the UI language', async () => {
+    await deleteApiKey('openai-compatible');
+    expect(stored).not.toHaveProperty('key:openai-compatible');
+    expect(stored['key:sarashina']).toBe('test-only-sarashina');
+    expect(stored.settings).toEqual(DEFAULT_SETTINGS);
+    expect(stored.uiLanguage).toBe('ja');
+    expect(mocks.set).not.toHaveBeenCalled();
+    await expect(deleteApiKey('settings')).rejects.toThrow('error.provider');
+    expect(mocks.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains a key for the same endpoint and deletes it when the endpoint changes', async () => {
+    const settings = { ...DEFAULT_SETTINGS, provider: 'openai-compatible' as const, customBaseUrl: 'https://example.com/v1', customModel: 'test-model' };
+    stored.settings = settings;
+    await saveSettings(settings, '');
+    expect(stored['key:openai-compatible']).toBe('test-only-compatible');
+    await saveSettings({ ...settings, customBaseUrl: 'https://other.example/v1' }, '');
+    expect(stored).not.toHaveProperty('key:openai-compatible');
+    expect(stored['key:sarashina']).toBe('test-only-sarashina');
+  });
+
+  it('stores an explicitly entered replacement after removing the old endpoint key', async () => {
+    await saveSettings({ ...DEFAULT_SETTINGS, provider: 'openai-compatible', customBaseUrl: 'https://example.com/v1', customModel: 'test-model' }, 'test-only-replacement');
+    expect(mocks.remove).toHaveBeenCalledWith('key:openai-compatible');
+    expect(stored['key:openai-compatible']).toBe('test-only-replacement');
   });
 });
 

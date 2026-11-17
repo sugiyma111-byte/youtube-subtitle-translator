@@ -23,7 +23,18 @@ export async function readApiKey(provider: ProviderId): Promise<string> {
 
 export async function publicSettings(): Promise<PublicSettings> {
   const settings = await readSettings();
-  return { settings, hasApiKey: Boolean(await readApiKey(settings.provider)), uiLanguage: await readUiLanguage() };
+  const [sarashina, compatible, uiLanguage] = await Promise.all([
+    readApiKey('sarashina'), readApiKey('openai-compatible'), readUiLanguage(),
+  ]);
+  const hasApiKeys = { sarashina: Boolean(sarashina), 'openai-compatible': Boolean(compatible) };
+  return { settings, hasApiKey: hasApiKeys[settings.provider], hasApiKeys, uiLanguage };
+}
+
+// Deleting a saved key must not validate or save an unrelated settings draft.
+export async function deleteApiKey(provider: unknown): Promise<ProviderId> {
+  if (provider !== 'sarashina' && provider !== 'openai-compatible') throw new MessageError('error.provider');
+  await browser.storage.local.remove(`key:${provider}`);
+  return provider;
 }
 
 export async function readUiLanguage(): Promise<UiLanguage> {
