@@ -1,3 +1,7 @@
+import type { LocalizedMessage, MessageKey, MessageParams } from '../i18n';
+
+export type UiLanguage = 'auto' | 'ja' | 'en';
+
 export interface Cue {
   id: string;
   start: number;
@@ -23,7 +27,7 @@ export interface Settings {
 
 export interface ProviderCapabilities {
   id: ProviderId;
-  name: string;
+  nameKey: MessageKey;
   languagePairs: ReadonlyArray<readonly [string, string]> | 'custom';
   maxCharacters: number;
   requestsPerMinute: number;
@@ -37,13 +41,14 @@ export interface TranslationInput {
 }
 
 export type ErrorCode = 'AUTH' | 'RATE_LIMIT' | 'NETWORK' | 'CONFIG' | 'RESPONSE' | 'UNSUPPORTED' | 'FORBIDDEN';
-export interface Failure { ok: false; code: ErrorCode; message: string; retryAfterMs?: number }
+export interface Failure extends LocalizedMessage { ok: false; code: ErrorCode; retryAfterMs?: number }
 export type Result<T> = { ok: true; value: T } | Failure;
-export interface PublicSettings { settings: Settings; hasApiKey: boolean }
+export interface PublicSettings { settings: Settings; hasApiKey: boolean; uiLanguage: UiLanguage }
 export interface PlayerStatus {
   enabled: boolean;
   phase: 'idle' | 'loading' | 'ready' | 'waiting' | 'error';
-  message: string;
+  messageKey: MessageKey | null;
+  params?: MessageParams;
   total: number;
   translated: number;
 }

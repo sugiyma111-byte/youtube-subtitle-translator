@@ -6,6 +6,7 @@ declare const chrome: typeof import('wxt/browser').browser;
 let context: BrowserContext;
 let worker: Worker;
 let extensionId: string;
+let profileDirectory: string;
 const fixtureVideo = 'aaaaaaaaaaa';
 const root = path.resolve('.output/chrome-mv3');
 const transcript = { events: [
@@ -19,8 +20,10 @@ document.querySelector('#movie_player').getPlayerResponse=()=>({videoDetails:{vi
 </script></body></html>`;
 
 test.beforeAll(async () => {
-  await fs.mkdir('.local/e2e-profile', { recursive: true });
-  context = await chromium.launchPersistentContext(path.resolve('.local/e2e-profile'), {
+  // A fresh, short path avoids stale service workers and Windows IndexedDB path limits.
+  await fs.mkdir('.local', { recursive: true });
+  profileDirectory = await fs.mkdtemp(path.resolve('.local/e2e-'));
+  context = await chromium.launchPersistentContext(profileDirectory, {
     channel: 'chromium', headless: true, viewport: { width: 1280, height: 900 },
     args: [`--disable-extensions-except=${root}`, `--load-extension=${root}`],
   });
@@ -56,11 +59,17 @@ test.beforeAll(async () => {
   });
 });
 
-test.afterAll(async () => { await context?.close(); });
+test.afterAll(async () => {
+  await context?.close();
+  if (profileDirectory && path.dirname(path.resolve(profileDirectory)) === path.resolve('.local') && path.basename(profileDirectory).startsWith('e2e-')) {
+    await fs.rm(profileDirectory, { recursive: true, force: true });
+  }
+});
 
 test('saves credentials, translates, seeks, caches, stops on navigation and isolates the page', async () => {
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popup.locator('#uiLanguage').selectOption('ja');
   const [options] = await Promise.all([
     context.waitForEvent('page'),
     popup.getByRole('button', { name: 'サービス・字幕の設定' }).click(),
@@ -118,7 +127,7 @@ test('saves credentials, translates, seeks, caches, stops on navigation and isol
 });
 
 test('requests English transcript data even on a Japanese YouTube page', async () => {
-  await worker.evaluate(async () => { await chrome.storage.local.set({ 'key:sarashina': 'test-only-not-a-real-api-key' }); await chrome.storage.session.clear(); });
+  await worker.evaluate(async () => { await chrome.storage.local.set({ 'key:sarashina': 'test-only-not-a-real-api-key', uiLanguage: 'ja' }); await chrome.storage.session.clear(); });
   const page = await context.newPage();
   const descriptor = { updateEngagementPanelContentCommand: { contentSourcePanelIdentifier: { tag: 'PAmodern_transcript_view' }, globalConfiguration: { params: Buffer.from(`prefix-${fixtureVideo}-suffix`).toString('base64') } } };
   const payload = { contents: [{ macroMarkersPanelItemViewModel: {
@@ -138,4 +147,100 @@ test('requests English transcript data even on a Japanese YouTube page', async (
   await expect(page.locator('#kotonoha-subtitles').locator('.original')).toHaveText('Hello and welcome.');
   expect(requestedLanguage).toBe('en');
   await page.close();
+});
+
+test('persists UI language, synchronizes open pages and keeps translation and unsaved input intact', async () => {
+  await worker.evaluate(async () => { await chrome.storage.local.set({ uiLanguage: 'auto' }); await chrome.storage.session.clear(); });
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  const automaticLanguage = await options.evaluate(() => chrome.i18n.getUILanguage().toLowerCase().startsWith('ja') ? 'ja' : 'en');
+  await expect(options.locator('#uiLanguage')).toHaveValue('auto');
+  await expect(options.locator('html')).toHaveAttribute('lang', automaticLanguage);
+  await options.locator('#uiLanguage').selectOption('ja');
+  await expect(options.locator('html')).toHaveAttribute('lang', 'ja');
+  const settingsBefore = await worker.evaluate(async () => JSON.stringify((await chrome.storage.local.get('settings')).settings));
+
+  const page = await context.newPage();
+  let captionRequests = 0;
+  page.on('request', request => { if (request.url().includes('/api/timedtext')) captionRequests++; });
+  await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+  const overlay = page.locator('#kotonoha-subtitles');
+  await overlay.getByRole('button', { name: '翻訳 OFF', exact: true }).click();
+  await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
+  const readState = () => options.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa' });
+    return chrome.tabs.sendMessage(tab!.id!, { type: 'kotonoha:player-status' });
+  });
+  await expect.poll(async () => (await readState()).translated).toBe(2);
+  const before = await readState();
+  const requestsBefore = captionRequests;
+  const apiCallsBefore = await worker.evaluate(() => (globalThis as unknown as { apiCalls: string[] }).apiCalls.length);
+
+  // These unsaved values must survive re-labeling, including a custom language.
+  await options.locator('#provider').selectOption('openai-compatible');
+  await options.locator('#customBaseUrl').fill('https://example.com/v1');
+  await options.locator('#customModel').fill('unsaved-model');
+  await options.locator('#sourceLang').selectOption('custom');
+  await options.locator('#sourceCode').fill('it');
+  await options.locator('#apiKey').fill('unsaved-test-only');
+  await options.locator('#fontSize').fill('32');
+  await options.locator('#uiLanguage').selectOption('en');
+  await expect(options.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(options).toHaveTitle('Caption Translator for YouTube Settings');
+  await expect(options.getByRole('button', { name: 'Save settings', exact: true })).toBeVisible();
+  await expect(options.locator('#targetLang option:checked')).toHaveText('Japanese');
+  await expect(options.locator('#customModel')).toHaveValue('unsaved-model');
+  await expect(options.locator('#sourceLang')).toHaveValue('custom');
+  await expect(options.locator('#sourceCode')).toHaveValue('it');
+  await expect(options.locator('#apiKey')).toHaveValue('unsaved-test-only');
+  await expect(options.locator('#fontSize')).toHaveValue('32');
+  await expect(overlay.getByRole('button', { name: 'Translate ON', exact: true })).toBeVisible();
+  await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+
+  const popup = await context.newPage();
+  // Keep the YouTube page active so the popup can read its real player status.
+  await page.bringToFront();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await expect(popup.locator('#uiLanguage')).toHaveValue('en');
+  await expect(popup.locator('#language-pair')).toHaveText('English → Japanese');
+  await expect(popup.locator('#progress')).toHaveText('2 of 3 segments translated');
+  await popup.locator('#uiLanguage').selectOption('ja');
+  await expect(options.locator('html')).toHaveAttribute('lang', 'ja');
+  await expect(options.locator('#uiLanguage')).toHaveValue('ja');
+  await expect(overlay.getByRole('button', { name: '翻訳 ON', exact: true })).toBeVisible();
+  await expect(popup.locator('#language-pair')).toHaveText('英語 → 日本語');
+  await expect(popup.locator('#progress')).toHaveText('2 / 3 区間を翻訳済み');
+  await popup.locator('#uiLanguage').selectOption('auto');
+  await expect(options.locator('#uiLanguage')).toHaveValue('auto');
+  await expect(options.locator('html')).toHaveAttribute('lang', automaticLanguage);
+  await expect(overlay).toHaveAttribute('lang', automaticLanguage);
+
+  expect((await readState()).enabled).toBe(true);
+  expect((await readState()).translated).toBe(before.translated);
+  expect(captionRequests).toBe(requestsBefore);
+  expect(await worker.evaluate(() => (globalThis as unknown as { apiCalls: string[] }).apiCalls.length)).toBe(apiCallsBefore);
+  expect(await worker.evaluate(async () => JSON.stringify((await chrome.storage.local.get('settings')).settings))).toBe(settingsBefore);
+  expect(await worker.evaluate(async () => (await chrome.storage.local.get('uiLanguage')).uiLanguage)).toBe('auto');
+
+  await popup.reload();
+  await expect(popup.locator('#uiLanguage')).toHaveValue('auto');
+  await expect(popup.locator('html')).toHaveAttribute('lang', automaticLanguage);
+  await popup.close(); await options.close(); await page.close();
+});
+
+test('re-localizes an existing validation error and rejects invalid preferences', async () => {
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await options.locator('#uiLanguage').selectOption('ja');
+  await options.locator('#targetLang').selectOption('en');
+  await options.getByRole('button', { name: '設定を保存', exact: true }).click();
+  await expect(options.locator('#message')).toHaveText('原文と翻訳先には異なる言語を指定してください。');
+  await options.locator('#uiLanguage').selectOption('en');
+  await expect(options.locator('#message')).toHaveText('Choose different source and target languages.');
+  await expect(options.locator('#targetLang')).toHaveValue('en');
+  const invalid = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:save-ui-language', uiLanguage: 'fr' }));
+  expect(invalid).toMatchObject({ ok: false, messageKey: 'error.uiLanguage' });
+  expect(invalid).not.toHaveProperty('message');
+  await options.close();
 });

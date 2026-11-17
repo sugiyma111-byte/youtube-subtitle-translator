@@ -1,4 +1,5 @@
 import type { PlayerStatus, Settings } from '../core/types';
+import { t, translateMessage, type Language } from '../i18n';
 
 export class SubtitleOverlay {
   readonly host = document.createElement('div');
@@ -9,6 +10,10 @@ export class SubtitleOverlay {
   private readonly captions = document.createElement('div');
   private readonly original = document.createElement('div');
   private readonly translated = document.createElement('div');
+  private readonly settingsButton = document.createElement('button');
+  private language: Language = 'en';
+  private state?: PlayerStatus;
+  private waitingForTranslation = false;
 
   constructor(player: HTMLElement, onToggle: () => void, onRetry: () => void, onSettings: () => void) {
     this.host.id = 'kotonoha-subtitles';
@@ -28,19 +33,30 @@ export class SubtitleOverlay {
       @media (max-width:600px) { .captions { left:3%; right:3%; bottom:52px; font-size:20px !important; } }
     `;
     const toolbar = document.createElement('div'); toolbar.className = 'toolbar';
-    this.toggle.textContent = '翻訳 OFF'; this.toggle.title = 'この動画の字幕翻訳を開始・停止';
     this.toggle.addEventListener('click', event => { event.stopPropagation(); onToggle(); });
-    this.retry.textContent = '再取得'; this.retry.hidden = true;
+    this.retry.hidden = true;
     this.retry.addEventListener('click', event => { event.stopPropagation(); onRetry(); });
-    const settings = document.createElement('button'); settings.textContent = '設定'; settings.title = '翻訳サービス・字幕の設定';
-    settings.addEventListener('click', event => { event.stopPropagation(); onSettings(); });
-    toolbar.append(this.toggle, this.retry, settings);
+    this.settingsButton.addEventListener('click', event => { event.stopPropagation(); onSettings(); });
+    toolbar.append(this.toggle, this.retry, this.settingsButton);
     this.status.className = 'status'; this.status.setAttribute('role', 'status'); this.status.hidden = true;
     this.captions.className = 'captions'; this.captions.hidden = true;
     this.translated.className = 'line translated'; this.original.className = 'line original';
     this.captions.append(this.translated, this.original);
     this.root.append(style, toolbar, this.status, this.captions);
+    this.setLanguage(this.language);
     player.append(this.host);
+  }
+
+  setLanguage(language: Language) {
+    this.language = language;
+    this.host.lang = language;
+    this.toggle.textContent = t(language, this.state?.enabled ? 'overlay.on' : 'overlay.off');
+    this.toggle.title = t(language, 'overlay.toggleTitle');
+    this.retry.textContent = t(language, 'overlay.retry');
+    this.settingsButton.textContent = t(language, 'overlay.settings');
+    this.settingsButton.title = t(language, 'overlay.settingsTitle');
+    if (this.state) this.setStatus(this.state);
+    if (this.waitingForTranslation) this.translated.textContent = t(language, 'overlay.translating');
   }
 
   configure(settings: Settings) {
@@ -50,16 +66,18 @@ export class SubtitleOverlay {
   }
 
   setStatus(status: PlayerStatus) {
-    this.toggle.textContent = status.enabled ? '翻訳 ON' : '翻訳 OFF';
+    this.state = status;
+    this.toggle.textContent = t(this.language, status.enabled ? 'overlay.on' : 'overlay.off');
     this.toggle.setAttribute('aria-pressed', String(status.enabled));
     this.retry.hidden = status.phase !== 'error';
-    this.status.textContent = status.message;
-    this.status.hidden = !status.message || status.phase === 'ready' || status.phase === 'idle';
+    this.status.textContent = status.messageKey ? translateMessage(this.language, { messageKey: status.messageKey, params: status.params }) : '';
+    this.status.hidden = !status.messageKey || status.phase === 'ready' || status.phase === 'idle';
   }
 
   show(original: string, translated: string, settings: Settings) {
     // Subtitle text is untrusted. Never render it as HTML.
-    this.translated.textContent = translated || '翻訳中…';
+    this.waitingForTranslation = !translated;
+    this.translated.textContent = translated || t(this.language, 'overlay.translating');
     this.original.textContent = original;
     this.original.hidden = settings.displayMode !== 'bilingual';
     this.captions.hidden = !original;

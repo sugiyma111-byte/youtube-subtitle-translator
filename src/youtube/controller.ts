@@ -1,7 +1,8 @@
 import { browser } from 'wxt/browser';
 import { activeCue, groupCues, upcomingCues } from '../core/captions';
 import { DEFAULT_SETTINGS } from '../core/settings';
-import type { Cue, PlayerStatus, PublicSettings, Result, Settings } from '../core/types';
+import type { Cue, PlayerStatus, PublicSettings, Result, Settings, UiLanguage } from '../core/types';
+import { errorMessage, MessageError, resolveLanguage, type LocalizedMessage } from '../i18n';
 import { SubtitleOverlay } from '../ui/overlay';
 import { youtubeCaptionSource } from './source';
 
@@ -18,11 +19,12 @@ export class VideoController {
   private timer: number;
   private nativeStyle = document.createElement('style');
   readonly video: HTMLVideoElement;
-  status: PlayerStatus = { enabled: false, phase: 'idle', message: '翻訳を開始すると、この動画の字幕を送信します。', total: 0, translated: 0 };
+  status: PlayerStatus = { enabled: false, phase: 'idle', messageKey: 'status.idle', total: 0, translated: 0 };
 
-  constructor(readonly videoId: string, readonly player: HTMLElement) {
+  constructor(readonly videoId: string, readonly player: HTMLElement, uiLanguage: UiLanguage = 'auto') {
     this.video = player.querySelector('video')!;
     this.overlay = new SubtitleOverlay(player, () => this.status.enabled ? this.stop() : void this.start(), () => void this.start(), () => void browser.runtime.sendMessage({ type: 'kotonoha:open-options' }));
+    this.setUiLanguage(uiLanguage);
     this.nativeStyle.textContent = '#movie_player[data-kotonoha-active] .ytp-caption-window-container { visibility:hidden !important; }';
     document.head.append(this.nativeStyle);
     this.video.addEventListener('seeking', this.onSeeking);
@@ -33,34 +35,39 @@ export class VideoController {
 
   private onSeeking = () => { this.overlay.hide(); this.tick(); };
 
+  setUiLanguage(preference: UiLanguage) {
+    // Only repaint UI; leave captions, requests, retries and translation settings intact.
+    this.overlay.setLanguage(resolveLanguage(preference, browser.i18n.getUILanguage()));
+  }
+
   private update(update: Partial<PlayerStatus>) {
-    this.status = { ...this.status, ...update, total: this.cues.length, translated: this.translations.size };
+    this.status = { ...this.status, params: undefined, ...update, total: this.cues.length, translated: this.translations.size };
     this.overlay.setStatus(this.status);
   }
 
   async start() {
     this.stop();
     const generation = this.generation;
-    this.update({ enabled: true, phase: 'loading', message: '字幕を準備しています…' });
+    this.update({ enabled: true, phase: 'loading', messageKey: 'status.loading' });
     try {
       const response = await browser.runtime.sendMessage({ type: 'kotonoha:get-settings' }) as Result<PublicSettings>;
       if (generation !== this.generation) return;
-      if (!response.ok) throw new Error(response.message);
+      if (!response.ok) throw new MessageError(response.messageKey, response.params);
       this.settings = response.value.settings;
       this.overlay.configure(this.settings);
-      if (!response.value.hasApiKey) throw new Error('「設定」でAPIキーを登録してから、翻訳を開始してください。');
+      if (!response.value.hasApiKey) throw new MessageError('error.startWithoutKey');
       this.sourceAbort = new AbortController();
       const source = await youtubeCaptionSource.load(this.videoId, this.settings.sourceLang, this.sourceAbort.signal);
       if (generation !== this.generation) return;
       this.cues = groupCues(source.cues, 220, 9);
-      if (!this.cues.length) throw new Error('時刻付きの字幕が見つかりませんでした。');
+      if (!this.cues.length) throw new MessageError('error.noTimedCaptions');
       this.player.dataset.kotonohaActive = 'true';
-      this.update({ phase: 'ready', message: '字幕を先読みしています。' });
+      this.update({ phase: 'ready', messageKey: 'status.prefetching' });
       this.tick();
     } catch (error) {
       if (generation !== this.generation) return;
       delete this.player.dataset.kotonohaActive;
-      this.update({ phase: 'error', message: error instanceof Error ? error.message : '字幕を準備できませんでした。' });
+      this.update({ phase: 'error', ...errorMessage(error, 'error.prepareCaptions') });
     }
   }
 
@@ -71,7 +78,7 @@ export class VideoController {
     this.inFlight = false; this.retryAt = 0; this.networkFailures = 0;
     delete this.player.dataset.kotonohaActive;
     this.overlay.hide();
-    this.update({ enabled: false, phase: 'idle', message: '' });
+    this.update({ enabled: false, phase: 'idle', messageKey: null });
   }
 
   private tick = () => {
@@ -85,7 +92,7 @@ export class VideoController {
 
   private async pump() {
     const cue = upcomingCues(this.cues, this.video.currentTime, this.settings.lookaheadSeconds).find(item => !this.translations.has(item.id));
-    if (!cue) { this.update({ phase: 'ready', message: '再生位置の字幕を翻訳済みです。' }); return; }
+    if (!cue) { this.update({ phase: 'ready', messageKey: 'status.translated' }); return; }
     this.inFlight = true;
     const generation = this.generation;
     try {
@@ -94,25 +101,27 @@ export class VideoController {
       if (result.ok) {
         this.translations.set(cue.id, result.value);
         this.networkFailures = 0;
-        this.update({ phase: 'ready', message: '字幕を先読みしています。' });
+        this.update({ phase: 'ready', messageKey: 'status.prefetching' });
       } else if (result.retryAfterMs && (result.code === 'RATE_LIMIT' || result.code === 'NETWORK')) {
         if (result.code === 'NETWORK') this.networkFailures++;
-        if (this.networkFailures >= 3) { this.fail('接続に失敗しました。通信状態を確認して「再取得」を押してください。'); return; }
+        if (this.networkFailures >= 3) { this.fail({ messageKey: 'error.repeatedNetwork' }); return; }
         this.retryAt = Date.now() + result.retryAfterMs;
         const current = activeCue(this.cues, this.video.currentTime);
-        this.update({ phase: current && !this.translations.has(current.id) ? 'waiting' : 'ready', message: result.code === 'RATE_LIMIT' ? '翻訳を準備しています。送信間隔を調整して自動で続行します。' : result.message });
-      } else this.fail(result.message);
+        this.update({ phase: current && !this.translations.has(current.id) ? 'waiting' : 'ready',
+          messageKey: result.code === 'RATE_LIMIT' ? 'status.waiting' : result.messageKey,
+          params: result.code === 'RATE_LIMIT' ? undefined : result.params });
+      } else this.fail(result);
     } catch {
-      if (generation === this.generation) this.fail('拡張機能との接続が切れました。動画ページを再読み込みしてください。');
+      if (generation === this.generation) this.fail({ messageKey: 'error.extensionDisconnected' });
     } finally {
       if (generation === this.generation) this.inFlight = false;
     }
   }
 
-  private fail(message: string) {
+  private fail(message: LocalizedMessage) {
     delete this.player.dataset.kotonohaActive;
     this.overlay.hide();
-    this.update({ phase: 'error', message });
+    this.update({ phase: 'error', messageKey: message.messageKey, params: message.params });
   }
 
   destroy() {
