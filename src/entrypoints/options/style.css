@@ -82,6 +82,8 @@ dialog > p { margin-top: 8px; font-size: 14px; color: var(--slate); }
 dialog .button-row { justify-content: flex-end; margin-top: 20px; }
 @media (max-width: 900px) { .settings-layout { grid-template-columns: minmax(0, 1fr); } .settings-layout aside { position: static; } }
 @media (max-width: 560px) {
+  html { scroll-padding-top: 16px; }
+  .settings-header { position: static; }
   .header-content, .settings-layout, .save-bar-content { padding-left: 16px; padding-right: 16px; }
   .settings-block { padding: 18px; }
   .provider-choices, .language-pair, .data-row { grid-template-columns: minmax(0, 1fr); }

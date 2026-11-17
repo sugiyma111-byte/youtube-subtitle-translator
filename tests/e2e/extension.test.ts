@@ -428,8 +428,8 @@ test('keeps every settings section and its controls usable at narrow Japanese an
   await fs.mkdir('artifacts', { recursive: true });
   for (const language of ['ja', 'en']) {
     await options.locator(`[data-ui-language=${language}]`).click();
-    for (const width of [1280, 760, 420, 320]) {
-      await options.setViewportSize({ width, height: 900 });
+    for (const width of [1280, 760, 561, 560, 420, 320]) {
+      await options.setViewportSize({ width, height: width <= 560 ? 600 : 900 });
       await options.locator('input[name=provider][value=openai-compatible]').check();
       await options.locator('#sourceLang').selectOption('custom');
       await options.locator('#sourceCode').fill('it');
@@ -452,6 +452,16 @@ test('keeps every settings section and its controls usable at narrow Japanese an
         return { issues, pageWidth: document.documentElement.scrollWidth, viewport: innerWidth };
       });
       expect(bounds, `${language} at ${width}px`).toEqual({ issues: [], pageWidth: width, viewport: width });
+      await options.evaluate(() => scrollTo(0, 400));
+      if (width <= 560) {
+        await expect(options.locator('.settings-header')).toHaveCSS('position', 'static');
+        await expect.poll(() => options.locator('.settings-header').evaluate(header => header.getBoundingClientRect().bottom)).toBeLessThan(0);
+        await expect(options.locator('html')).toHaveCSS('scroll-padding-top', '16px');
+      } else {
+        await expect(options.locator('.settings-header')).toHaveCSS('position', 'sticky');
+        await expect.poll(() => options.locator('.settings-header').evaluate(header => header.getBoundingClientRect().top)).toBe(0);
+      }
+      await expect(options.locator('#save-bar')).toBeInViewport();
       await options.evaluate(() => scrollTo(0, 0));
       await options.screenshot({ path: `artifacts/settings-${language}-${width}.png`, fullPage: true });
     }
@@ -767,7 +777,7 @@ test('pins preparation, waiting and actionable errors, and shortens small-player
     context.waitForEvent('page'),
     overlay.locator('.actions').getByRole('button', { name: '設定を開く', exact: true }).click(),
   ]);
-  await expect.poll(() => worker.evaluate(async url => (await chrome.tabs.query({ url })).length, `chrome-extension://${extensionId}/options.html`)).toBeGreaterThan(0);
+  await expect(openedOptions).toHaveURL(`chrome-extension://${extensionId}/options.html`);
   await page.bringToFront();
   await toggle.click();
 
