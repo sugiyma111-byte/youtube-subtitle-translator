@@ -7,7 +7,7 @@ import { applyI18n, errorMessage, languageName, MessageError, t, translateMessag
 import { bindUiLanguage } from '../../ui/language';
 
 type Action = 'start' | 'stop' | 'retry' | 'add-key' | 'none';
-type Player = { kind: 'video' | 'other' | 'unavailable'; state: PlayerStatus | null };
+type Player = { kind: 'video' | 'other' | 'checking' | 'unavailable'; state: PlayerStatus | null };
 interface View {
   kind: string;
   title: MessageKey;
@@ -32,12 +32,14 @@ let notice: LocalizedMessage | undefined;
 let noticeTimer: number | undefined;
 let refreshRevision = 0;
 let busy = false;
+let pendingPlayer: { videoId: string; since: number } | undefined;
 
 function currentView(): View {
   if (loadError) return { kind: 'unavailable', title: 'popup.unavailableTitle', detail: loadError, signal: 'alert', action: 'none' };
   if (!settings) return { kind: 'checking', title: 'popup.checking', detail: { messageKey: 'popup.checkingDetail' }, signal: 'off', action: 'none' };
   // Registration is useful even when the active tab is not a video yet.
   if (!settings.hasApiKey) return { kind: 'no-key', title: 'popup.noKeyTitle', detail: { messageKey: 'popup.noKeyDetail' }, signal: 'alert', action: 'add-key' };
+  if (player.kind === 'checking') return { kind: 'checking', title: 'popup.checking', detail: { messageKey: 'popup.checkingDetail' }, signal: 'off', action: 'none' };
   if (player.kind === 'unavailable') return { kind: 'unavailable', title: 'popup.unavailableTitle', detail: { messageKey: 'popup.reloadVideo' }, signal: 'alert', action: 'none' };
   if (!player.state) return { kind: 'not-video', title: 'popup.notVideoTitle', detail: { messageKey: 'popup.notVideoDetail' }, signal: 'off', action: 'none' };
   const state = player.state;
@@ -99,13 +101,16 @@ async function readPlayer(): Promise<Player> {
   let tab;
   try { tab = await browser.tabs.get(tabId); }
   catch { return { kind: 'other', state: null }; }
-  if (!isYouTubePage(tab.url)) return { kind: 'other', state: null };
+  if (!isYouTubePage(tab.url)) { pendingPlayer = undefined; return { kind: 'other', state: null }; }
   const url = new URL(tab.url!);
-  if (url.pathname !== '/watch' || !/^[\w-]{11}$/.test(url.searchParams.get('v') ?? '')) return { kind: 'other', state: null };
+  const videoId = url.searchParams.get('v') ?? '';
+  if (url.pathname !== '/watch' || !/^[\w-]{11}$/.test(videoId)) { pendingPlayer = undefined; return { kind: 'other', state: null }; }
   try {
     const state = await browser.tabs.sendMessage(tabId, { type: 'kotonoha:player-status' }) as PlayerStatus | null;
-    return { kind: state ? 'video' : 'unavailable', state };
-  } catch { return { kind: 'unavailable', state: null }; }
+    if (state) { pendingPlayer = undefined; return { kind: 'video', state }; }
+  } catch { /* The content script may still be loading after navigation. */ }
+  if (pendingPlayer?.videoId !== videoId) pendingPlayer = { videoId, since: Date.now() };
+  return { kind: Date.now() - pendingPlayer.since < 5000 ? 'checking' : 'unavailable', state: null };
 }
 
 async function refresh() {
