@@ -94,7 +94,7 @@ test('saves credentials, translates, seeks, caches, stops on navigation and isol
   await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
   await page.locator('video').evaluate(async element => { const video = element as HTMLVideoElement; if (video.readyState < 1) await new Promise(resolve => video.addEventListener('loadedmetadata', resolve, {once:true})); video.currentTime = 1; });
   const overlay = page.locator('#kotonoha-subtitles');
-  await overlay.getByRole('button', { name: '翻訳 OFF', exact: true }).click();
+  await overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: false, exact: true }).click();
   await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。', { timeout: 12000 });
   await expect(overlay.locator('.original')).toHaveText('Hello and welcome.');
   await expect(page.locator('#movie_player')).toHaveAttribute('data-kotonoha-active', 'true');
@@ -109,24 +109,24 @@ test('saves credentials, translates, seeks, caches, stops on navigation and isol
   await expect.poll(() => page.locator('video').evaluate(video => (video as HTMLVideoElement).currentTime)).toBe(61);
   await expect(overlay.locator('.translated')).toHaveText('先の場面に移動しました。', { timeout: 15000 });
   const before = await worker.evaluate(() => (globalThis as unknown as { apiCalls: string[] }).apiCalls.filter(t => t === 'Hello and welcome.').length);
-  await overlay.getByRole('button', { name: '翻訳 ON', exact: true }).click();
+  await overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: true, exact: true }).click();
   await expect(page.locator('#movie_player')).not.toHaveAttribute('data-kotonoha-active');
   await page.locator('video').evaluate(video => { (video as HTMLVideoElement).currentTime = 1; });
-  await overlay.getByRole('button', { name: '翻訳 OFF', exact: true }).click();
+  await overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: false, exact: true }).click();
   await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
   const after = await worker.evaluate(() => (globalThis as unknown as { apiCalls: string[] }).apiCalls.filter(t => t === 'Hello and welcome.').length);
   expect(after).toBe(before);
 
   await page.evaluate(() => { history.pushState({}, '', '/watch?v=bbbbbbbbbbb'); document.dispatchEvent(new Event('yt-navigate-finish')); });
-  await expect(overlay.getByRole('button', { name: '翻訳 OFF', exact: true })).toBeVisible();
+  await expect(overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: false, exact: true })).toBeVisible();
   await expect(overlay.locator('.captions')).toBeHidden();
   expect(errors).toEqual([]);
 
   await options.getByRole('button', { name: 'このキーを削除', exact: true }).click();
   await options.getByRole('dialog').getByRole('button', { name: '削除する', exact: true }).click();
   await expect(options.locator('#message')).toContainText('APIキーを削除しました');
-  await overlay.getByRole('button', { name: '翻訳 OFF', exact: true }).click();
-  await expect(overlay.locator('.status')).toContainText('APIキーを登録');
+  await overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: false, exact: true }).click();
+  await expect(overlay.locator('.status')).toContainText('APIキーが未登録');
   await page.close(); await options.close();
 });
 
@@ -146,7 +146,7 @@ test('requests English transcript data even on a Japanese YouTube page', async (
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) });
   });
   await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
-  await page.locator('#kotonoha-subtitles').getByRole('button', { name: '翻訳 OFF', exact: true }).click();
+  await page.locator('#kotonoha-subtitles').getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: false, exact: true }).click();
   await expect(page.locator('#kotonoha-subtitles').locator('.translated')).toHaveText('こんにちは。ようこそ。');
   await expect(page.locator('#kotonoha-subtitles').locator('.original')).toHaveText('Hello and welcome.');
   expect(requestedLanguage).toBe('en');
@@ -169,7 +169,7 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   page.on('request', request => { if (request.url().includes('/api/timedtext')) captionRequests++; });
   await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
   const overlay = page.locator('#kotonoha-subtitles');
-  await overlay.getByRole('button', { name: '翻訳 OFF', exact: true }).click();
+  await overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: false, exact: true }).click();
   await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
   const readState = () => options.evaluate(async () => {
     const [tab] = await chrome.tabs.query({ url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa' });
@@ -198,7 +198,7 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   await expect(options.locator('#sourceCode')).toHaveValue('it');
   await expect(options.locator('#apiKey')).toHaveValue('unsaved-test-only');
   await expect(options.locator('#fontSize')).toHaveValue('32');
-  await expect(overlay.getByRole('button', { name: 'Translate ON', exact: true })).toBeVisible();
+  await expect(overlay.getByRole('switch', { name: 'Translate captions for this video', checked: true, exact: true })).toBeVisible();
   await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
 
@@ -212,7 +212,7 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   await popup.locator('#uiLanguage').click();
   await expect(options.locator('html')).toHaveAttribute('lang', 'ja');
   await expect(options.locator('[data-ui-language=ja]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(overlay.getByRole('button', { name: '翻訳 ON', exact: true })).toBeVisible();
+  await expect(overlay.getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: true, exact: true })).toBeVisible();
   await expect(popup.locator('#language-pair')).toHaveText('英語 → 日本語');
   await expect(popup.locator('#progress')).toHaveText('2 / 3 区間を翻訳済み');
   await options.locator('[data-ui-language=auto]').click();
@@ -602,7 +602,7 @@ test('expires a failed popup language save without covering or freezing the vide
   await expect(popup.getByRole('progressbar')).toBeVisible();
   await expect(popup.locator('html')).toHaveAttribute('lang', 'ja');
   expect(await worker.evaluate(async () => (await chrome.storage.local.get('uiLanguage')).uiLanguage)).toBe('ja');
-  await page.locator('#kotonoha-subtitles').getByRole('button', { name: '翻訳 ON', exact: true }).click();
+  await page.locator('#kotonoha-subtitles').getByRole('switch', { name: 'この動画の字幕を翻訳する', checked: true, exact: true }).click();
   await expect(popup.locator('#status-title')).toHaveText('この動画を翻訳できます');
   await expect(popup.locator('#notice')).toBeVisible();
   await expect(popup.locator('#notice')).toBeHidden({ timeout: 7000 });
@@ -614,5 +614,232 @@ test('expires a failed popup language save without covering or freezing the vide
   await popup.reload();
   await expect(popup.locator('#uiLanguage')).toHaveText('日本語');
   await expect(popup.locator('html')).toHaveAttribute('lang', 'en');
+  await popup.close(); await page.close();
+});
+
+async function resizePlayer(page: Page, width: number, height: number) {
+  await page.locator('#movie_player').evaluate((player, size) => {
+    player.style.width = `${size.width}px`; player.style.height = `${size.height}px`;
+    player.parentElement!.style.width = `${size.width}px`;
+  }, { width, height });
+}
+
+async function overlayBounds(page: Page) {
+  return page.locator('#movie_player').evaluate(player => {
+    const rect = player.getBoundingClientRect();
+    const host = player.querySelector('#kotonoha-subtitles')!;
+    const root = host.shadowRoot!;
+    const toggle = root.querySelector('.translation-switch')!.getBoundingClientRect();
+    const settings = root.querySelector('.settings-button')!.getBoundingClientRect();
+    const captions = root.querySelector('.captions')!;
+    const captionRect = captions.getBoundingClientRect();
+    return {
+      top: toggle.top - rect.top, right: rect.right - settings.right,
+      switchHeight: toggle.height, settingsSize: [settings.width, settings.height],
+      bottomGap: rect.bottom - captionRect.bottom,
+      topGap: captionRect.top - toggle.bottom,
+      fontSize: getComputedStyle(captions).fontSize,
+      inside: captionRect.left >= rect.left && captionRect.right <= rect.right && captionRect.bottom <= rect.bottom,
+      separate: host.parentElement === player && !host.closest('.ytp-chrome-bottom'),
+    };
+  });
+}
+
+test('follows player controls, keeps keyboard access and positions fixed-size captions in every player mode', async () => {
+  await worker.evaluate(async settings => {
+    await chrome.storage.local.set({ settings, uiLanguage: 'ja', 'key:sarashina': 'test-only-not-a-real-api-key' });
+    await chrome.storage.session.clear();
+  }, DEFAULT_SETTINGS);
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+  // Reference native control bands, outside the extension's shadow tree.
+  await page.addStyleTag({ content: '.ytp-chrome-bottom{position:absolute;bottom:0;width:100%;height:64px;background:#17212b88;pointer-events:none} :fullscreen .ytp-chrome-bottom{height:88px} .ytp-autohide .ytp-chrome-bottom{opacity:0}' });
+  await page.locator('#movie_player').evaluate(player => {
+    const bar = document.createElement('div'); bar.className = 'ytp-chrome-bottom'; player.append(bar);
+  });
+  const overlay = page.locator('#kotonoha-subtitles');
+  const dock = overlay.locator('.dock');
+  const toggle = overlay.getByRole('switch');
+  await expect(overlay).toHaveAttribute('data-autohide', 'fallback');
+  await page.mouse.move(300, 300);
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await expect(dock).toHaveAttribute('data-visible', 'false', { timeout: 5000 });
+  await page.mouse.move(310, 300);
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await page.locator('#movie_player').evaluate(player => player.classList.add('ytp-autohide'));
+  await expect(overlay).toHaveAttribute('data-autohide', 'player');
+  await expect(dock).toHaveAttribute('data-visible', 'false');
+
+  // Invisible controls remain reachable by Tab, and Space/Enter use native button activation.
+  await page.locator('#fullscreen').focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(overlay.locator('.settings-button')).toBeFocused();
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await page.keyboard.press('Shift+Tab');
+  await expect(toggle).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(toggle).toBeChecked();
+  await page.keyboard.press('Enter');
+  await expect(toggle).not.toBeChecked();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#fullscreen')).toBeFocused();
+  await expect(dock).toHaveAttribute('data-visible', 'false');
+
+  await page.locator('#movie_player').evaluate(player => player.classList.remove('ytp-autohide'));
+  await toggle.click();
+  await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
+  await expect(overlay.locator('.status')).toBeHidden({ timeout: 12000 });
+  const normal = await overlayBounds(page);
+  expect(normal).toMatchObject({ top: 64, right: 12, switchHeight: 44, settingsSize: [44, 44], fontSize: '26px', inside: true, separate: true });
+  expect(normal.bottomGap).toBeCloseTo(64 + 540 * .03, 1);
+  await fs.mkdir('artifacts', { recursive: true });
+  await page.screenshot({ path: 'artifacts/overlay-normal-ja.png' });
+  await page.locator('#movie_player').evaluate(player => player.classList.add('ytp-autohide'));
+  // A mouse click must not leave keyboard-focus protection stuck on.
+  await expect(dock).toHaveAttribute('data-visible', 'false');
+  expect((await overlayBounds(page)).bottomGap).toBeCloseTo(540 * .03, 1);
+
+  await options.evaluate(settings => chrome.runtime.sendMessage({ type: 'kotonoha:save-settings', settings: { ...settings, position: 'top', fontSize: 32 }, apiKey: '' }), DEFAULT_SETTINGS);
+  await expect(overlay.locator('.captions')).toHaveAttribute('data-position', 'top');
+  await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
+  await page.locator('#movie_player').evaluate(player => player.classList.remove('ytp-autohide'));
+  await resizePlayer(page, 1200, 675);
+  await expect.poll(async () => (await overlayBounds(page)).fontSize).toBe('32px');
+  expect((await overlayBounds(page)).topGap).toBeGreaterThanOrEqual(16);
+  await resizePlayer(page, 520, 293);
+  await expect(overlay).toHaveAttribute('data-compact', 'false');
+  await expect(overlay.locator('.translation-label')).toBeVisible();
+  await resizePlayer(page, 519, 292);
+  await expect(overlay).toHaveAttribute('data-compact', 'true');
+  await expect(overlay.locator('.translation-label')).toBeHidden();
+  await resizePlayer(page, 460, 259);
+  await worker.evaluate(() => chrome.storage.local.set({ uiLanguage: 'en' }));
+  await expect(toggle).toHaveAccessibleName('Translate captions for this video');
+  expect(await overlayBounds(page)).toMatchObject({ fontSize: '32px', inside: true });
+  await page.screenshot({ path: 'artifacts/overlay-small-en.png' });
+
+  await resizePlayer(page, 1200, 675);
+  await page.locator('#fullscreen').click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.id)).toBe('movie_player');
+  await expect.poll(async () => (await overlayBounds(page)).top).toBe(80);
+  expect(await overlayBounds(page)).toMatchObject({ right: 12, switchHeight: 44, settingsSize: [44, 44], fontSize: '32px', inside: true });
+  await page.screenshot({ path: 'artifacts/overlay-fullscreen-en.png' });
+  await page.evaluate(() => document.exitFullscreen());
+  expect(errors).toEqual([]);
+  await page.close(); await options.close();
+});
+
+test('pins preparation, waiting and actionable errors, and shortens small-player error text', async () => {
+  await worker.evaluate(async settings => {
+    await chrome.storage.local.set({ settings, uiLanguage: 'ja' });
+    await chrome.storage.local.remove('key:sarashina');
+    await chrome.storage.session.clear();
+  }, DEFAULT_SETTINGS);
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await options.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:clear-cache' }));
+  const page = await context.newPage();
+  await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+  const overlay = page.locator('#kotonoha-subtitles');
+  const toggle = overlay.getByRole('switch');
+  const dock = overlay.locator('.dock');
+  const status = overlay.locator('.status-text');
+  await toggle.click();
+  await expect(status).toContainText('APIキーが未登録');
+  await page.locator('#movie_player').evaluate(player => player.classList.add('ytp-autohide'));
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await expect(overlay.locator('.actions').getByRole('button', { name: '設定を開く', exact: true })).toBeVisible();
+  await expect(overlay.getByRole('button', { name: '字幕を再取得', exact: true })).toBeHidden();
+  await overlay.locator('.actions').getByRole('button', { name: '設定を開く', exact: true }).click();
+  await expect.poll(() => worker.evaluate(async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.url)).toBe(`chrome-extension://${extensionId}/options.html`);
+  await page.bringToFront();
+  await toggle.click();
+
+  let releaseCaptions!: () => void;
+  const captionGate = new Promise<void>(resolve => { releaseCaptions = resolve; });
+  await page.route('https://www.youtube.com/api/timedtext**', async route => {
+    await captionGate;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(transcript) });
+  });
+  await worker.evaluate(async () => {
+    await chrome.storage.local.set({ 'key:sarashina': 'test-only-not-a-real-api-key' });
+    await chrome.storage.session.set({ 'rate:sarashina:translate': { timestamps: [], blockedUntil: Date.now() + 60000 } });
+  });
+  await page.locator('#movie_player').evaluate(player => player.classList.remove('ytp-autohide'));
+  await toggle.click();
+  await expect(status).toHaveText('字幕を準備しています…');
+  await page.locator('#movie_player').evaluate(player => player.classList.add('ytp-autohide'));
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await fs.mkdir('artifacts', { recursive: true });
+  await page.screenshot({ path: 'artifacts/overlay-preparing-ja.png' });
+  releaseCaptions();
+  await expect(status).toContainText('送信');
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await expect(overlay).toHaveAttribute('data-controls', 'hidden');
+  await expect(overlay.locator('.translated')).toHaveText('翻訳中…');
+  expect((await overlayBounds(page)).bottomGap).toBeCloseTo(540 * .03, 1);
+  await worker.evaluate(() => chrome.storage.local.set({ uiLanguage: 'en' }));
+  await resizePlayer(page, 460, 259);
+  await expect(status).toHaveText('Waiting to send. Resumes automatically.');
+  await expect(overlay.locator('.translation-label')).toBeHidden();
+  await expect(toggle).toHaveAccessibleName('Translate captions for this video');
+  const plateBounds = await overlay.locator('.status').boundingBox();
+  const captionBounds = await overlay.locator('.captions').boundingBox();
+  expect(plateBounds!.y + plateBounds!.height).toBeLessThan(captionBounds!.y);
+  await page.screenshot({ path: 'artifacts/overlay-waiting-small-en.png' });
+  await toggle.click();
+  await worker.evaluate(() => chrome.storage.session.clear());
+  await page.evaluate(() => {
+    const player = document.getElementById('movie_player') as HTMLElement & { getPlayerResponse: () => PlayerResponse };
+    const original = player.getPlayerResponse;
+    (globalThis as unknown as { restoreCaptions: () => void }).restoreCaptions = () => { player.getPlayerResponse = original; };
+    player.getPlayerResponse = () => {
+      const response = original();
+      for (const track of response.captions!.playerCaptionsTracklistRenderer!.captionTracks!) track.languageCode = 'ko';
+      return response;
+    };
+    player.classList.remove('ytp-autohide');
+  });
+  await toggle.click();
+  await expect(status).toHaveText("Couldn't load captions.");
+  await page.locator('#movie_player').evaluate(player => player.classList.add('ytp-autohide'));
+  await expect(dock).toHaveAttribute('data-visible', 'true');
+  await expect(overlay.locator('.actions .secondary')).toBeHidden();
+  await expect(overlay.locator('.settings-button')).toBeVisible();
+  await page.screenshot({ path: 'artifacts/overlay-error-small-en.png' });
+  await resizePlayer(page, 960, 540);
+  await expect(status).toContainText('No English captions');
+  await expect(overlay.locator('.actions .secondary')).toBeVisible();
+  await page.evaluate(() => (globalThis as unknown as { restoreCaptions: () => void }).restoreCaptions());
+  await overlay.getByRole('button', { name: 'Reload captions', exact: true }).click();
+  await expect(overlay.locator('.translated')).toHaveText('こんにちは。ようこそ。');
+  await expect(dock).toHaveAttribute('data-visible', 'false', { timeout: 12000 });
+  await page.close(); await options.close();
+});
+
+test('shows checking while the video controller mounts, times out and recovers without reopening the popup', async () => {
+  await worker.evaluate(settings => chrome.storage.local.set({ settings, uiLanguage: 'en', 'key:sarashina': 'test-only-not-a-real-api-key' }), DEFAULT_SETTINGS);
+  const page = await context.newPage();
+  // The watch page is present before YouTube has mounted its player.
+  await page.route('https://www.youtube.com/watch**', route => route.fulfill({ contentType: 'text/html', body: fixture.replaceAll('movie_player', 'pending_player') }));
+  await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+  const popup = await context.newPage();
+  await popup.setViewportSize({ width: 360, height: 600 });
+  await page.bringToFront();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'checking');
+  await expect(popup.locator('#primary')).toBeDisabled();
+  await page.locator('#pending_player').evaluate(player => { player.id = 'movie_player'; });
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'idle');
+  await page.locator('#movie_player').evaluate(player => { player.id = 'pending_player'; });
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'checking');
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'unavailable', { timeout: 8000 });
+  await page.locator('#pending_player').evaluate(player => { player.id = 'movie_player'; });
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'idle');
   await popup.close(); await page.close();
 });

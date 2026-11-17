@@ -106,8 +106,8 @@ export class VideoController {
         if (result.code === 'NETWORK') this.networkFailures++;
         if (this.networkFailures >= 3) { this.fail({ messageKey: 'error.repeatedNetwork' }); return; }
         this.retryAt = Date.now() + result.retryAfterMs;
-        const current = activeCue(this.cues, this.video.currentTime);
-        this.update({ phase: current && !this.translations.has(current.id) ? 'waiting' : 'ready',
+        // A queued request is still waiting when the current caption is already translated.
+        this.update({ phase: 'waiting',
           messageKey: result.code === 'RATE_LIMIT' ? 'status.waiting' : result.messageKey,
           params: result.code === 'RATE_LIMIT' ? undefined : result.params });
       } else this.fail(result);
