@@ -5,16 +5,34 @@ YouTubeの字幕をAIで翻訳し、再生位置に合わせて動画上に表�
 
 ![設定画面](docs/images/settings.png)
 
+## 翻訳サービスの選び方
+
+| 翻訳したい言語 | 基本的に使うサービス | 必要な設定 |
+|---|---|---|
+| 英語 → 日本語 / 日本語 → 英語 | **Sarashina** | 自分のSarashina APIキーと翻訳方向。接続先・モデル名の入力は不要 |
+| 韓国語・中国語・フランス語などを含む翻訳 | **OpenAI互換API** | 利用サービスのAPIキー・ベースURL・モデル名・翻訳方向 |
+
+日英・英日翻訳にはSarashinaの翻訳専用APIを使う構成です。他の言語では、目的の言語に対応したOpenAI互換サービス・モデルを選びます。
+「OpenAI互換」は通信形式を指し、OpenAI社以外の対応サービスも含みます。サービスは設定画面で選択し、自動では切り替わりません。
+どちらの場合も、YouTube動画に原文言語の字幕が必要です。
+
+> **APIキーの保存について**
+>
+> Sarashina・OpenAI互換APIともに、APIキーは利用中のChromeプロファイル内にある拡張専用の `chrome.storage.local` に保存します。**保存時の暗号化は行いません。** Chromeを再起動しても残り、Chromeの同期機能やGitHubには送信しません。
+> 端末の保存ファイルやバックアップにアクセスできる人には、キーを読み取られる可能性があります。特に有料の互換APIでは不正利用による料金にも注意してください。入力欄の伏字は保存時の暗号化を意味しません。
+> 詳細と削除方法は [APIキーの保存と注意点](docs/PRIVACY.md#apiキーの保存と注意点) を参照してください。
+
 ## 使い始める
 
 1. [Releases](https://github.com/sugiyma111-byte/youtube-subtitle-translator/releases) からChrome用ZIPをダウンロードして展開します。
 2. Chromeで `chrome://extensions` を開き、右上の「デベロッパーモード」をONにします。
 3. 「パッケージ化されていない拡張機能を読み込む」で、**manifest.jsonが入ったフォルダー**を選びます。
-4. 拡張の設定でAPIキーを登録し、「保存して接続を確認」を押します。
+4. [Sarashinaの導入手順](docs/USER_GUIDE.md#sarashinaを設定する) に沿ってAPIキーを取得し、拡張の設定で登録して「保存して接続を確認」を押します。
 5. 英語字幕のある通常のYouTube動画を開き、動画右上の「翻訳 OFF」を押します。
 
 更新した直後は拡張の更新ボタンを押し、YouTubeページも再読み込みしてください。
 詳しくは [導入・操作ガイド](docs/USER_GUIDE.md) を参照してください。
+他の言語を翻訳する場合は [OpenAI互換APIの設定手順](docs/USER_GUIDE.md#他の言語をopenai互換apiで翻訳する) を参照してください。
 
 ## 機能
 
@@ -64,6 +82,6 @@ pnpm zip
 ## 拡張する
 
 字幕取得 → 文の整理 → 先読み管理 → 翻訳サービス接続 → 時刻に合わせた表示を分離しています。
-詳しくは [設計メモ](docs/ARCHITECTURE.md)、データの扱いは [プライバシー](docs/PRIVACY.md) を参照してください。
+全体の流れとAPIキーの保存場所は [構成図・設計メモ](docs/ARCHITECTURE.md)、データの扱いは [プライバシー](docs/PRIVACY.md) を参照してください。
 
 仕様参照: [Sarashina Translate](https://docs.sarashina.ai/api-reference/translate)、[レート制限](https://docs.sarashina.ai/rate-limits)、[WXT](https://wxt.dev/)。
