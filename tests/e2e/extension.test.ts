@@ -1,7 +1,8 @@
-import { chromium, expect, test, type BrowserContext, type Worker } from '@playwright/test';
+import { chromium, expect, test, type BrowserContext, type Page, type Worker } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { DEFAULT_SETTINGS } from '../../src/core/settings';
+import type { PlayerResponse } from '../../src/youtube/bridge';
 declare const chrome: typeof import('wxt/browser').browser;
 
 let context: BrowserContext;
@@ -68,12 +69,12 @@ test.afterAll(async () => {
 });
 
 test('saves credentials, translates, seeks, caches, stops on navigation and isolates the page', async () => {
+  await worker.evaluate(() => chrome.storage.local.set({ uiLanguage: 'ja' }));
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-  await popup.locator('#uiLanguage').selectOption('ja');
   const [options] = await Promise.all([
     context.waitForEvent('page'),
-    popup.getByRole('button', { name: 'サービス・字幕の設定' }).click(),
+    popup.getByRole('button', { name: '設定を開く' }).click(),
   ]);
   await expect(options).toHaveURL(`chrome-extension://${extensionId}/options.html`);
   await popup.close();
@@ -205,16 +206,16 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   // Keep the YouTube page active so the popup can read its real player status.
   await page.bringToFront();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-  await expect(popup.locator('#uiLanguage')).toHaveValue('en');
+  await expect(popup.locator('#uiLanguage')).toHaveText('日本語');
   await expect(popup.locator('#language-pair')).toHaveText('English → Japanese');
   await expect(popup.locator('#progress')).toHaveText('2 of 3 segments translated');
-  await popup.locator('#uiLanguage').selectOption('ja');
+  await popup.locator('#uiLanguage').click();
   await expect(options.locator('html')).toHaveAttribute('lang', 'ja');
   await expect(options.locator('[data-ui-language=ja]')).toHaveAttribute('aria-pressed', 'true');
   await expect(overlay.getByRole('button', { name: '翻訳 ON', exact: true })).toBeVisible();
   await expect(popup.locator('#language-pair')).toHaveText('英語 → 日本語');
   await expect(popup.locator('#progress')).toHaveText('2 / 3 区間を翻訳済み');
-  await popup.locator('#uiLanguage').selectOption('auto');
+  await options.locator('[data-ui-language=auto]').click();
   await expect(options.locator('[data-ui-language=auto]')).toHaveAttribute('aria-pressed', 'true');
   await expect(options.locator('html')).toHaveAttribute('lang', automaticLanguage);
   await expect(overlay).toHaveAttribute('lang', automaticLanguage);
@@ -227,7 +228,7 @@ test('persists UI language, synchronizes open pages and keeps translation and un
   expect(await worker.evaluate(async () => (await chrome.storage.local.get('uiLanguage')).uiLanguage)).toBe('auto');
 
   await popup.reload();
-  await expect(popup.locator('#uiLanguage')).toHaveValue('auto');
+  await expect(popup.locator('#uiLanguage')).toHaveText(automaticLanguage === 'ja' ? 'English' : '日本語');
   await expect(popup.locator('html')).toHaveAttribute('lang', automaticLanguage);
   await popup.close(); await options.close(); await page.close();
 });
@@ -456,4 +457,162 @@ test('keeps every settings section and its controls usable at narrow Japanese an
     }
   }
   await options.close();
+});
+
+async function capturePopup(popup: Page, state: string, title: [string, string], action: [string, string], suffix = '') {
+  for (const [index, language] of ['ja', 'en'].entries()) {
+    if (await popup.locator('html').getAttribute('lang') !== language) await popup.locator('#uiLanguage').click();
+    await expect(popup.locator('#status')).toHaveAttribute('data-state', state);
+    await expect(popup.locator('#status-title')).toHaveText(title[index]!);
+    await expect(popup.locator('#primary')).toHaveText(action[index]!);
+    if (state === 'not-video') await expect(popup.locator('#primary')).toBeDisabled();
+    else await expect(popup.locator('#primary')).toBeEnabled();
+    await expect(popup.locator('#uiLanguage')).toHaveText(language === 'ja' ? 'English' : '日本語');
+    const layout = await popup.evaluate(() => {
+      const issues: string[] = [];
+      for (const node of document.querySelectorAll<HTMLElement>('body *')) {
+        if (!node.checkVisibility()) continue;
+        if ([...node.childNodes].some(child => child.nodeType === Node.TEXT_NODE && child.textContent?.trim()) && parseFloat(getComputedStyle(node).fontSize) < 13) issues.push(`small text: ${node.id || node.tagName}`);
+        if (node instanceof HTMLButtonElement) {
+          const rect = node.getBoundingClientRect();
+          if (rect.width < 44 || rect.height < 44 || rect.left < 0 || rect.right > document.documentElement.clientWidth) issues.push(`button bounds: ${node.id}`);
+        }
+      }
+      return { issues, width: document.documentElement.scrollWidth, availableWidth: document.documentElement.clientWidth };
+    });
+    expect(layout.issues, `${language}: ${state}`).toEqual([]);
+    expect(layout.width).toBeLessThanOrEqual(layout.availableWidth);
+    await popup.mouse.move(359, 599);
+    await popup.screenshot({ path: `artifacts/popup-${state}-${language}${suffix}.png`, fullPage: true, animations: 'disabled' });
+  }
+}
+
+test('shows all six popup states at 360px and drives registration, start, stop and caption reload', async () => {
+  await worker.evaluate(async settings => {
+    await chrome.storage.local.remove(['key:sarashina', 'key:openai-compatible']);
+    await chrome.storage.local.set({ settings, uiLanguage: 'ja' });
+    await chrome.storage.session.clear();
+  }, DEFAULT_SETTINGS);
+  const page = await context.newPage();
+  await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+  const popup = await context.newPage();
+  await popup.setViewportSize({ width: 360, height: 600 });
+  await page.bringToFront();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await fs.mkdir('artifacts', { recursive: true });
+  await capturePopup(popup, 'no-key', ['APIキーが未登録です', 'No API key yet'], ['APIキーを登録', 'Add API key']);
+  const [options] = await Promise.all([context.waitForEvent('page'), popup.getByRole('button', { name: 'Add API key', exact: true }).click()]);
+  await expect(options).toHaveURL(`chrome-extension://${extensionId}/options.html#apikey`);
+  await expect(options.locator('#apiKey')).toBeInViewport();
+  await options.locator('#apiKey').fill('test-only-not-a-real-api-key');
+  await options.locator('#save').click();
+  await expect(options.locator('#key-status')).toHaveText('Saved (not encrypted)');
+  await options.evaluate(() => chrome.runtime.sendMessage({ type: 'kotonoha:clear-cache' }));
+  await options.close();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'idle');
+  await capturePopup(popup, 'idle', ['この動画を翻訳できます', 'Ready to translate this video'], ['翻訳を開始', 'Start translating']);
+
+  // Use the real limiter and controller; no API call is made while waiting.
+  await worker.evaluate(() => chrome.storage.session.set({ 'rate:sarashina:translate': { timestamps: [], blockedUntil: Date.now() + 60000 } }));
+  await popup.locator('#primary').click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'waiting');
+  await capturePopup(popup, 'waiting', ['少し待っています', 'Waiting briefly'], ['翻訳を停止', 'Stop translating']);
+  await expect(popup.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  await expect(popup.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '3');
+  await popup.locator('#primary').click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'idle');
+  await worker.evaluate(() => chrome.storage.session.clear());
+  await popup.locator('#primary').click();
+  await expect(page.locator('#kotonoha-subtitles .translated')).toHaveText('こんにちは。ようこそ。');
+  await expect(popup.locator('#progress')).toHaveText('2 of 3 segments translated');
+  await capturePopup(popup, 'active', ['翻訳中', 'Translating'], ['翻訳を停止', 'Stop translating']);
+  await expect(popup.getByRole('progressbar')).toHaveAttribute('aria-valuenow', /^[12]$/);
+  await popup.locator('#primary').click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'idle');
+  await expect(page.locator('#movie_player')).not.toHaveAttribute('data-kotonoha-active');
+
+  // Make the fixture expose a different source language, then restore it before Reload captions.
+  await page.evaluate(() => {
+    const player = document.getElementById('movie_player') as HTMLElement & { getPlayerResponse: () => PlayerResponse };
+    const original = player.getPlayerResponse;
+    (globalThis as unknown as { restoreCaptions: () => void }).restoreCaptions = () => { player.getPlayerResponse = original; };
+    player.getPlayerResponse = () => {
+      const response = original();
+      for (const track of response.captions!.playerCaptionsTracklistRenderer!.captionTracks!) track.languageCode = 'ko';
+      return response;
+    };
+  });
+  await popup.locator('#primary').click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'error');
+  await capturePopup(popup, 'error', ['字幕を取得できませんでした', "Couldn't load captions"], ['字幕を再取得', 'Reload captions']);
+  await expect(popup.locator('#status-detail')).toContainText('No English captions');
+  await expect(popup.getByRole('button', { name: 'Stop translating', exact: true })).toBeVisible();
+  await popup.locator('#secondary').click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'idle');
+  await popup.locator('#primary').click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'error');
+  await page.evaluate(() => (globalThis as unknown as { restoreCaptions: () => void }).restoreCaptions());
+  await popup.getByRole('button', { name: 'Reload captions', exact: true }).click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'active');
+  await expect(page.locator('#kotonoha-subtitles .translated')).toHaveText('こんにちは。ようこそ。');
+
+  await page.route('https://www.youtube.com/', route => route.fulfill({ contentType: 'text/html', body: '<h1>Home fixture</h1>' }));
+  await page.goto('https://www.youtube.com/');
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'not-video');
+  await capturePopup(popup, 'not-video', ['YouTubeの動画ページで使えます', 'Open a YouTube video to use this'], ['翻訳を開始', 'Start translating']);
+  await expect(popup.locator('#primary')).toBeDisabled();
+  await expect(popup.locator('#secondary')).toBeHidden();
+
+  // Summary labels are localized from the current saved settings, including long language names.
+  await worker.evaluate(settings => chrome.storage.local.set({ settings: { ...settings, provider: 'openai-compatible', customBaseUrl: 'https://example.com/v1', customModel: 'test-model', sourceLang: 'zh-Hant-TW', targetLang: 'ko' }, 'key:openai-compatible': 'test-only-compatible' }), DEFAULT_SETTINGS);
+  await expect(popup.locator('#provider-name')).toHaveText('OpenAI-compatible API');
+  await expect(popup.locator('#language-pair')).toContainText('Korean');
+  await capturePopup(popup, 'not-video', ['YouTubeの動画ページで使えます', 'Open a YouTube video to use this'], ['翻訳を開始', 'Start translating'], '-compatible');
+  const [changedOptions] = await Promise.all([context.waitForEvent('page'), popup.getByRole('button', { name: 'Change', exact: true }).click()]);
+  await expect(changedOptions).toHaveURL(`chrome-extension://${extensionId}/options.html`);
+  await changedOptions.close();
+  await popup.close(); await page.close();
+});
+
+test('expires a failed popup language save without covering or freezing the video status', async () => {
+  await worker.evaluate(async settings => {
+    await chrome.storage.local.set({ settings, uiLanguage: 'ja', 'key:sarashina': 'test-only-not-a-real-api-key' });
+    await chrome.storage.session.clear();
+  }, DEFAULT_SETTINGS);
+  const page = await context.newPage();
+  await page.goto(`https://www.youtube.com/watch?v=${fixtureVideo}`);
+  const popup = await context.newPage();
+  await popup.setViewportSize({ width: 360, height: 600 });
+  await popup.addInitScript(() => {
+    const state = globalThis as unknown as { rejectLanguageSave: boolean };
+    state.rejectLanguageSave = true;
+    const original = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = (async (message: { type?: string }) => {
+      if (state.rejectLanguageSave && message.type === 'kotonoha:save-ui-language') return { ok: false, code: 'CONFIG', messageKey: 'error.saveUiLanguage' };
+      return original(message);
+    }) as typeof chrome.runtime.sendMessage;
+  });
+  await page.bringToFront();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popup.getByRole('button', { name: '翻訳を開始', exact: true }).click();
+  await expect(popup.locator('#status')).toHaveAttribute('data-state', 'active');
+  await popup.locator('#uiLanguage').click();
+  await expect(popup.locator('#notice')).toContainText('表示言語を保存できませんでした。');
+  await expect(popup.locator('#status-title')).toHaveText('翻訳中');
+  await expect(popup.getByRole('progressbar')).toBeVisible();
+  await expect(popup.locator('html')).toHaveAttribute('lang', 'ja');
+  expect(await worker.evaluate(async () => (await chrome.storage.local.get('uiLanguage')).uiLanguage)).toBe('ja');
+  await page.locator('#kotonoha-subtitles').getByRole('button', { name: '翻訳 ON', exact: true }).click();
+  await expect(popup.locator('#status-title')).toHaveText('この動画を翻訳できます');
+  await expect(popup.locator('#notice')).toBeVisible();
+  await expect(popup.locator('#notice')).toBeHidden({ timeout: 7000 });
+  await popup.evaluate(() => { (globalThis as unknown as { rejectLanguageSave: boolean }).rejectLanguageSave = false; });
+  await popup.locator('#uiLanguage').click();
+  await expect(popup.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(popup.locator('#status-title')).toHaveText('Ready to translate this video');
+  await page.bringToFront();
+  await popup.reload();
+  await expect(popup.locator('#uiLanguage')).toHaveText('日本語');
+  await expect(popup.locator('html')).toHaveAttribute('lang', 'en');
+  await popup.close(); await page.close();
 });
